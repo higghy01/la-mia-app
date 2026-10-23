@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="La mia app">
+<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1a18" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icona-180.png">
+<link rel="icon" href="icona-180.png">
+<link rel="manifest" href="manifest.json">
+<title>La mia app</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-anthropic-serif: ui-serif, "New York", Georgia, "Times New Roman", serif;
+  --color-bg: #f6f5f1; --color-panel: #ffffff; --color-fg: #1f1e1b; --color-fg-muted: #6f6b63; --color-border-line: #e3e0d8;
+  --color-ok: #2e8b57; --color-warn: #b8640b; --color-bad: #c0392b;
+  --cds-chart-grid: #ece9e2; --cds-chart-muted: #b9b4aa; --cds-chart-axis: #8c877e; --cds-chart-reference: #8c877e;
+  --cds-text-secondary: #6f6b63; --cds-surface-popover: #ffffff; --cds-border: #e3e0d8; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.12);
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 16px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 16px;
+  --cds-radius: 14px; --cds-dur-slow: 240ms; --cds-ease-out: cubic-bezier(.2,.8,.2,1);
+  --cds-font-size-caption: 13px; --cds-font-size-body: 15px; --cds-font-size-heading: 17px; --cds-font-size-title: 28px;
+  --cds-font-weight-medium: 600;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1b1a18; --color-panel: #262522; --color-fg: #f1efe9; --color-fg-muted: #a39e94; --color-border-line: #3a3834;
+    --color-ok: #5cc48a; --color-warn: #e59b45; --color-bad: #ef6b5b;
+    --cds-chart-grid: #34322e; --cds-chart-muted: #6d6961; --cds-chart-axis: #8f8a80; --cds-chart-reference: #8f8a80;
+    --cds-text-secondary: #a39e94; --cds-surface-popover: #2f2e2a; --cds-border: #3a3834; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.5);
+  }
+}
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); }
+#dash-root { padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.dash-skeleton { position: relative; color: transparent !important; border-radius: 6px; background: linear-gradient(90deg, var(--color-border-line) 25%, var(--color-panel) 50%, var(--color-border-line) 75%); background-size: 200% 100%; animation: lma-sk 1.2s linear infinite; }
+@keyframes lma-sk { to { background-position: -200% 0; } }
+.lma-foot { max-width: 40rem; margin: 20px auto 0; display: flex; justify-content: space-between; gap: 12px; color: var(--color-fg-muted); font-size: 12px; }
+.lma-foot button { appearance: none; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; padding: 0; cursor: pointer; }
+/* Accesso */
+#lma-login { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--color-bg); padding: 24px; }
+#lma-login[hidden] { display: none; }
+#lma-login form { width: 100%; max-width: 22rem; display: grid; gap: 14px; }
+#lma-login h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 30px; margin: 0; }
+#lma-login p { margin: 0; color: var(--color-fg-muted); font-size: 15px; line-height: 1.45; }
+#lma-login input { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); }
+#lma-login button { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 999px; border: 0; background: var(--color-fg); color: var(--color-bg); cursor: pointer; }
+#lma-login button[disabled] { opacity: .6; }
+#lma-err { color: var(--color-bad); min-height: 1.2em; }
+.lma-u { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+</style>
+<script src="d3.min.js"></script>
+<script>
+// Sostituto del runtime della dashboard di Claude: stesse funzioni che usano la pagina e f1.js.
+window.dash = (() => {
+  let DATA = null;
+  const calcs = {};
+  const cbs = [];
+  let cache = {};
+  const cols = (r) => (Array.isArray(r) && r.length && typeof r[0] === 'object' && r[0] ? Object.keys(r[0]) : []);
+  function data(id) {
+    if (!DATA) return { status: 'loading', data: [], columns: [], meta: [], refreshing: false };
+    if (Object.prototype.hasOwnProperty.call(DATA.dati, id)) return { status: 'ok', data: DATA.dati[id], columns: cols(DATA.dati[id]), meta: [], refreshing: false };
+    const c = calcs[id];
+    if (!c) return { status: 'missing', data: [], columns: [], meta: [] };
+    if (cache[id]) return cache[id];
+    const ins = c.inputs.map(data);
+    const bad = ins.find((x) => x.status !== 'ok');
+    if (bad) return { status: bad.status, data: [], columns: [], meta: [] };
+    try { const r = c.fn(...ins.map((x) => x.data)); return (cache[id] = { status: 'ok', data: r, columns: cols(r), meta: [], refreshing: false }); }
+    catch (e) { console.error(id, e); return { status: 'error', data: [], columns: [], meta: [], message: String(e) }; }
+  }
+  const run = () => cbs.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
+  let t;
+  let w = innerWidth;
+  addEventListener('resize', () => { if (innerWidth === w) return; w = innerWidth; clearTimeout(t); t = setTimeout(run, 150); });
+  return {
+    colors: ['#2a7de1', '#e07b39', '#2fa36b', '#9b59b6', '#d64545', '#16a085', '#8a8f94', '#c9a227'],
+    calc: (id, o) => { calcs[id] = o; },
+    loader: () => {},
+    data,
+    onData: (f) => { cbs.push(f); try { f(); } catch (e) { console.error(e); } },
+    setLink: (name) => { try { history.replaceState(null, '', '#' + name); } catch (e) {} },
+    params: () => ({}), setParams: () => {}, resetParams: () => {}, refresh: () => {},
+    _set: (d) => { DATA = d; cache = {}; run(); },
+    _quando: () => (DATA ? DATA.aggiornato : null),
+  };
+})();
+</script>
+</head>
+<body>
+<div id="lma-login" hidden>
+  <form id="lma-form" autocomplete="on">
+    <h1>La mia app</h1>
+    <p>Scrivi la password per aprire i tuoi dati. Sull'iPhone basta la prima volta.</p>
+    <input class="lma-u" type="text" name="username" autocomplete="username" value="sasha" tabindex="-1" aria-hidden="true">
+    <input id="lma-pw" type="password" name="password" autocomplete="current-password" placeholder="Password" required>
+    <button id="lma-go" type="submit">Apri</button>
+    <p id="lma-err" role="alert"></p>
+  </form>
+</div>
+<div id="dash-root">
+<style>
+#dash-root { --dash-gutter: 16px; }
+.sv { display: grid; gap: var(--cds-gap-lg); max-width: 40rem; margin-inline: auto; font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); line-height: 1.45; }
+.sv-head h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+.sv-head p { margin: var(--cds-gap-xs) 0 0; color: var(--color-fg-muted); text-wrap: pretty; }
+
+/* Barra delle schede: resta in alto mentre scorri */
+.sv-nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 4px; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: 999px; }
+.sv-nav::-webkit-scrollbar { display: none; }
+.sv-nav a { flex: 1 0 auto; text-align: center; font-size: var(--cds-font-size-body); color: var(--color-fg); text-decoration: none; border: 1px solid transparent; border-radius: 999px; padding: 8px 14px; transition: background-color var(--cds-dur-slow), color var(--cds-dur-slow); -webkit-tap-highlight-color: transparent; }
+.sv-nav a[aria-current] { background: var(--color-fg); color: var(--color-bg); }
+.sv.f1-on .sv-nav a[aria-current]:not(.f1-tab) { background: transparent; color: var(--color-fg); }
+.sv-nav a:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+
+.sv-page { display: grid; gap: var(--cds-gap-lg); }
+.sv-page:not(.on) { display: none; }
+
+.sv-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); min-width: 0; }
+.sv-card h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.sv-card h3 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: var(--cds-gap-xs) 0 0; }
+.sv-note { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: 0; }
+.sv-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 2.75rem; line-height: 1.05; font-variant-numeric: tabular-nums; min-height: 2.9rem; }
+.sv-line { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); align-items: baseline; justify-content: space-between; }
+
+/* Riquadri della scheda Oggi */
+.sv-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
+.sv-tile { appearance: none; font: inherit; color: inherit; text-align: left; cursor: pointer; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md); display: grid; gap: 4px; align-content: start; min-width: 0; transition: transform var(--cds-dur-slow) var(--cds-ease-out); -webkit-tap-highlight-color: transparent; }
+.sv-tile:active { transform: scale(.97); }
+.sv-tile:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+.sv-tile .k { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-tile .n { font-family: var(--font-anthropic-serif); font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-height: 1.9rem; }
+.sv-tile .s { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); overflow-wrap: anywhere; }
+.sv-tile .go { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin-top: 2px; }
+
+/* Barra delle ore */
+.sv-meter { position: relative; height: 14px; border-radius: 999px; background: var(--cds-chart-grid); overflow: hidden; }
+.sv-meter-fill { height: 100%; width: 0; border-radius: 999px; transition: width 900ms var(--cds-ease-out); }
+.sv-meter-scale { display: flex; justify-content: space-between; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; margin-top: -6px; }
+
+.sv-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
+.sv-stat { display: grid; gap: 2px; padding: var(--cds-pad-sm) 0; border-top: 1px solid var(--color-border-line); }
+.sv-stat .k { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-stat .v { font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; }
+
+.sv-scroll { max-height: 26rem; overflow: auto; -webkit-overflow-scrolling: touch; }
+.sv-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
+.sv-table th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm) var(--cds-pad-xs) 0; border-bottom: 1px solid var(--color-border-line); position: sticky; top: 0; background: var(--color-panel); }
+.sv-table td { padding: 10px var(--cds-pad-sm) 10px 0; border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+.sv-table tr:last-child td { border-bottom: 0; }
+.sv-table .r { text-align: right; padding-right: 0; white-space: nowrap; font-weight: var(--cds-font-weight-medium); }
+.sv-table .sub { display: block; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin-top: 1px; }
+.sv-bar { height: 8px; border-radius: 999px; margin-top: 6px; min-width: 3px; width: 0; transition: width 700ms var(--cds-ease-out); }
+.sv-dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+.sv-pill { display: inline-block; font-size: var(--cds-font-size-caption); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; margin-left: 6px; color: var(--color-warn); vertical-align: 1px; }
+.sv-pos { color: var(--color-ok); }
+.sv-neg { color: var(--color-bad); }
+.sv-alert { display: grid; gap: 4px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); background: var(--color-panel); }
+.sv-alert .t { color: var(--color-warn); font-weight: var(--cds-font-weight-medium); }
+.sv-fail { display: flex; align-items: center; justify-content: center; gap: var(--cds-gap-xs); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+
+.sv [hidden] { display: none !important; }
+/* Scelta dei mesi */
+.sv-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
+.sv-pick label { display: grid; gap: 4px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); min-width: 0; }
+.sv-pick select { appearance: none; -webkit-appearance: none; font: inherit; font-size: 16px; color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 8px 30px 8px 14px; width: 100%; min-width: 0; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+.sv-pick select:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+/* Loghi dei conti */
+.sv-conto { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sv-logo { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 15px; letter-spacing: -.02em; line-height: 1; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.sv-logo svg { width: 34px; height: 34px; display: block; border-radius: 10px; }
+.sv-logo:has(svg) { background: none; box-shadow: none; }
+.sv-logo-img { padding: 0; object-fit: cover; border-radius: 22%; box-shadow: 0 0 0 1px var(--color-border-line); }
+
+/* Grafici */
+.sv-chart { position: relative; min-height: 11rem; }
+.sv-chart svg { display: block; overflow: visible; }
+.sv-tip { position: absolute; top: 0; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); pointer-events: none; white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+.sv-tip .h { color: var(--cds-text-secondary); }
+.sv-sw { display: inline-block; width: .6rem; height: .6rem; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.sv-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.sv-delta { font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; }
+.sv-head-row { display: flex; gap: var(--cds-gap-md); align-items: flex-start; justify-content: space-between; }
+.sv-refresh { appearance: none; font: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 6px 12px; cursor: pointer; flex: none; margin-top: 4px; }
+.sv-refresh:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+.sv-refresh[disabled] { opacity: .6; }
+@media (prefers-reduced-motion: no-preference) {
+  .sv-chart .sv-draw { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: sv-draw 900ms var(--cds-ease-out) forwards; }
+  @keyframes sv-draw { to { stroke-dashoffset: 0; } }
+}
+
+/* Animazioni: solo se il telefono non chiede movimento ridotto */
+@media (prefers-reduced-motion: no-preference) {
+  .sv-page.on.enter > * { animation: sv-rise 420ms var(--cds-ease-out) both; }
+  .sv-page.on.enter > *:nth-child(2) { animation-delay: 60ms; }
+  .sv-page.on.enter > *:nth-child(3) { animation-delay: 120ms; }
+  .sv-page.on.enter > *:nth-child(4) { animation-delay: 180ms; }
+  .sv-page.on.enter > *:nth-child(n+5) { animation-delay: 240ms; }
+  .sv-tiles.enter > .sv-tile { animation: sv-rise 420ms var(--cds-ease-out) both; }
+  .sv-tiles.enter > .sv-tile:nth-child(2) { animation-delay: 60ms; }
+  .sv-tiles.enter > .sv-tile:nth-child(3) { animation-delay: 120ms; }
+  .sv-tiles.enter > .sv-tile:nth-child(4) { animation-delay: 180ms; }
+  .sv-in { animation: sv-fade 500ms var(--cds-ease-out) both; }
+  @keyframes sv-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes sv-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}
+.sv-oltre { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-ok); }
+.sv-ok { color: var(--color-ok); }
+.sv-copertura-list { display: grid; gap: 2px; }
+/* Pillola che scivola sotto la scheda scelta */
+.sv-nav-pill { position: absolute; top: 4px; left: 0; height: calc(100% - 8px); width: 0; border-radius: 999px; background: var(--color-fg); opacity: 0; pointer-events: none; z-index: 0; transition: transform 460ms cubic-bezier(.34,1.3,.5,1), width 460ms cubic-bezier(.34,1.3,.5,1), opacity 200ms; }
+.sv-nav.has-pill a { position: relative; z-index: 1; background: transparent !important; border-color: transparent !important; color: var(--color-fg) !important; transition: color 260ms; }
+.sv-nav.has-pill a.sv-sel { color: var(--color-bg) !important; }
+.sv-meter-fill { position: relative; overflow: hidden; }
+.sv-tile { transition: transform 380ms cubic-bezier(.34,1.5,.5,1); }
+.sv-tile:active { transition-duration: 90ms; }
+@media (prefers-reduced-motion: no-preference) {
+  /* la nuova scheda arriva dal lato verso cui ti sposti */
+  .sv-page.on.enter > * { animation-name: sv-slide; }
+  @keyframes sv-slide { from { opacity: 0; transform: translate(var(--dx, 0px), 8px); } to { opacity: 1; transform: none; } }
+  /* righe delle tabelle una dopo l'altra, loghi che saltano dentro */
+  .sv-row-in { animation: sv-fade 420ms var(--cds-ease-out) both; animation-delay: var(--d, 0ms); }
+  .sv-row-in .sv-logo { animation: sv-pop 560ms cubic-bezier(.34,1.6,.5,1) both; animation-delay: calc(var(--d, 0ms) + 80ms); }
+  @keyframes sv-pop { from { opacity: 0; transform: scale(.4) rotate(-8deg); } to { opacity: 1; transform: none; } }
+  /* riflesso che passa sulla barra delle ore e sulle barre delle spese quando si riempiono */
+  .sv-meter-fill::after, .sv-bar.sv-shine::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.45) 50%, transparent 80%); transform: translateX(-100%); }
+  .sv-meter-fill.sv-shine::after, .sv-bar.sv-shine::after { animation: sv-shine 900ms 700ms ease-out both; }
+  .sv-bar { position: relative; overflow: hidden; transition-timing-function: cubic-bezier(.34,1.2,.5,1); }
+  @keyframes sv-shine { to { transform: translateX(100%); } }
+  /* il riquadro del prossimo addebito respira se è oggi o domani */
+  .sv-tile.sv-urgente { animation: sv-respiro 2.4s ease-in-out 1s 3; }
+  @keyframes sv-respiro { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warn) 30%, transparent); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv-meter-fill, .sv-bar, .sv-tile, .sv-nav a, .sv-nav-pill { transition: none; }
+}
+</style>
+
+<div class="sv">
+  <header class="sv-head" id="inizio">
+    <div class="sv-head-row"><h1>Ciao Sasha</h1></div>
+    <p id="riassunto"><span data-fill data-source="ore_soglia" data-field="frase_a" data-row="0" class="dash-skeleton">—</span> <span data-fill data-source="ore_soglia" data-field="valore" data-row="0" data-fmt="ore" class="dash-skeleton">—</span> <span data-fill data-source="ore_soglia" data-field="frase_b" data-row="0">—</span>. Prossimo addebito: <span data-fill data-source="addebiti" data-field="nome" data-row="0" class="dash-skeleton">—</span>, <span data-fill data-source="addebiti" data-field="data" data-row="0" data-fmt="giorno" class="dash-skeleton">—</span>.</p>
+  </header>
+
+  <nav class="sv-nav" aria-label="Schede">
+    <a href="#oggi" data-tab="oggi">Oggi</a><a href="#ore" data-tab="ore">Ore</a><a href="#spese" data-tab="spese">Spese</a><a href="#soldi" data-tab="soldi">Soldi</a><a href="#addebiti" data-tab="addebiti">Addebiti</a>
+  </nav>
+
+  <section class="sv-page" id="oggi">
+    <div class="sv-tiles" id="oggi-tiles">
+      <button type="button" class="sv-tile" data-go="ore" id="tile-ore">
+        <span class="k" data-fill data-source="ore_soglia" data-field="titolo" data-row="0">Ore mancanti</span>
+        <span class="n" data-fill data-source="ore_soglia" data-field="valore" data-row="0" data-fmt="ore">—</span>
+        <span class="s"><span data-fill data-source="ore_soglia" data-field="prep" data-row="0">su</span> <span data-fill data-source="ore_ora" data-field="soglia" data-row="0" data-fmt="ore">—</span> di soglia</span>
+      </button>
+      <button type="button" class="sv-tile" data-go="spese" id="tile-spese">
+        <span class="k">Spese di <span data-fill data-source="spese_tot" data-field="mese" data-row="0" data-fmt="mese">—</span></span>
+        <span class="n" data-fill data-source="spese_tot" data-field="uscite" data-row="0" data-fmt="eur0">—</span>
+        <span class="s">fino al <span data-fill data-source="spese_tot" data-field="ultimo" data-row="0" data-fmt="giorno">—</span></span>
+      </button>
+      <button type="button" class="sv-tile" data-go="soldi" id="tile-soldi">
+        <span class="k">Sui conti</span>
+        <span class="n" data-fill data-source="patrimonio" data-field="totale" data-row="0" data-fmt="eur0">—</span>
+        <span class="s">portafoglio <span data-fill data-source="portafoglio" data-field="guadagno" data-where="titolo=Totale" data-fmt="eursign0">—</span></span>
+      </button>
+      <button type="button" class="sv-tile" data-go="addebiti" id="tile-addebiti">
+        <span class="k">Prossimo addebito</span>
+        <span class="n" data-fill data-source="addebiti" data-field="importo" data-row="0" data-fmt="eur">—</span>
+        <span class="s"><span data-fill data-source="addebiti" data-field="nome" data-row="0">—</span>, <span data-fill data-source="addebiti" data-field="data" data-row="0" data-fmt="giorno">—</span></span>
+      </button>
+    </div>
+    <div class="sv-alert" id="oggi-copertura" data-source="copertura" hidden>
+      <span class="t">Occhio al saldo</span>
+      <div class="sv-copertura-list"></div>
+    </div>
+    <div class="sv-alert" id="oggi-ritardi" data-source="ritardi" hidden>
+      <span class="t">Da controllare</span>
+      <div class="sv-ritardi-list"></div>
+    </div>
+    <section class="sv-card" id="oggi-ultimi">
+      <h2>Ultimi movimenti</h2>
+      <table class="sv-table" id="tab-oggi-ultimi" data-source="ultimi" data-row-key="riga">
+        <thead><tr><th data-field="nota">Cosa</th><th class="r" data-field="importo">Importo</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </section>
+
+  <section class="sv-page" id="ore">
+    <section class="sv-card" id="ore-mese">
+      <div class="sv-line">
+        <h2>Ore di <span data-fill data-source="ore_ora" data-field="mese" data-row="0" class="dash-skeleton">—</span></h2>
+        <span class="sv-note" data-fill data-source="ore_ora" data-field="stato" data-row="0">—</span>
+      </div>
+      <div class="sv-line">
+        <div class="sv-big" data-fill data-source="ore_ora" data-field="conteggiate" data-row="0" data-fmt="ore">—</div>
+        <div class="sv-note">ore conteggiate</div>
+      </div>
+      <div class="sv-meter" data-source="ore_ora" aria-hidden="true"><div class="sv-meter-fill" id="ore-meter"></div></div>
+      <div class="sv-meter-scale"><span>0</span><span data-fill data-source="ore_ora" data-field="soglia" data-row="0" data-fmt="ore">—</span></div>
+      <p class="sv-oltre" id="ore-oltre" hidden></p>
+      <div class="sv-stats">
+        <div class="sv-stat"><span class="k">Mancanti</span><span class="v" data-fill data-source="ore_ora" data-field="mancanti" data-row="0" data-fmt="ore">—</span></div>
+        <div class="sv-stat"><span class="k">Di domenica</span><span class="v" data-fill data-source="ore_ora" data-field="domenica" data-row="0" data-fmt="ore">—</span></div>
+        <div class="sv-stat"><span class="k">In giorno festivo</span><span class="v" data-fill data-source="ore_ora" data-field="festivo" data-row="0" data-fmt="ore">—</span></div>
+        <div class="sv-stat"><span class="k">Ferie, permessi, malattia</span><span class="v" data-fill data-source="ore_ora" data-field="assenze" data-row="0" data-fmt="ore">—</span></div>
+      </div>
+    </section>
+    <section class="sv-card" id="ore-andamento">
+      <h2>Andamento del mese</h2>
+      <p class="sv-note">Ore conteggiate giorno per giorno. La linea tratteggiata è il ritmo per arrivare alla soglia a fine mese.</p>
+      <div class="sv-chart" id="ore-chart" data-source="ore_giorni ore_ora"></div>
+      <div class="sv-stats">
+        <div class="sv-stat"><span class="k">Media per giorno lavorato</span><span class="v" data-fill data-source="ore_media" data-field="media" data-row="0" data-fmt="ore">—</span></div>
+        <div class="sv-stat"><span class="k">Giorni lavorati</span><span class="v" data-fill data-source="ore_media" data-field="giorni" data-row="0">—</span></div>
+      </div>
+    </section>
+    <section class="sv-card" id="ore-straordinari">
+      <h2>Straordinari per mese</h2>
+      <table class="sv-table" id="tab-straord" data-source="straordinari" data-row-key="mese">
+        <thead><tr><th data-field="mese">Mese</th><th class="r" data-field="straordinari">Straordinari</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="sv-note" id="straord-nota">Ogni mese compare qui quando si chiude, con le ore sopra la soglia.</p>
+    </section>
+    <section class="sv-card" id="ore-turni">
+      <div class="sv-line"><h2>Turni del mese</h2><span class="sv-note">dal più recente</span></div>
+      <div class="sv-scroll">
+        <table class="sv-table" id="tab-turni" data-source="turni" data-row-key="data,entrata">
+          <thead><tr><th data-field="data">Giorno</th><th data-field="entrata">Orario</th><th class="r" data-field="ore">Ore</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="sv-note">"Previsto" vuol dire turno pianificato, non ancora confermato.</p>
+    </section>
+  </section>
+
+  <section class="sv-page" id="spese">
+    <section class="sv-card" id="spese-mese">
+      <div class="sv-line">
+        <h2>Spese di <span data-fill data-source="spese_tot" data-field="mese" data-row="0" data-fmt="mese" class="dash-skeleton">—</span></h2>
+        <span class="sv-note">dati fino al <span data-fill data-source="spese_tot" data-field="ultimo" data-row="0" data-fmt="giorno">—</span></span>
+      </div>
+      <div class="sv-big" data-fill data-source="spese_tot" data-field="uscite" data-row="0" data-fmt="eur">—</div>
+      <div class="sv-stats">
+        <div class="sv-stat"><span class="k">Entrate</span><span class="v sv-pos" data-fill data-source="spese_tot" data-field="entrate" data-row="0" data-fmt="eur">—</span></div>
+        <div class="sv-stat"><span class="k">Media al giorno</span><span class="v" data-fill data-source="spese_ritmo" data-field="media" data-row="0" data-fmt="eur">—</span></div>
+        <div class="sv-stat"><span class="k">Stima a fine mese</span><span class="v" data-fill data-source="spese_ritmo" data-field="stima" data-row="0" data-fmt="eur0">—</span></div>
+        <div class="sv-stat"><span class="k">La spesa più grande</span><span class="v" data-fill data-source="spese_ritmo" data-field="max_importo" data-row="0" data-fmt="eur">—</span><span class="sv-note" data-fill data-source="spese_ritmo" data-field="max_nota" data-row="0">—</span></div>
+      </div>
+      <p class="sv-note">Senza giroconti, investimenti e righe escluse. La stima continua il ritmo di spesa di questi giorni fino a fine mese.</p>
+    </section>
+    <section class="sv-card" id="spese-confronto">
+      <h2>Confronto tra mesi</h2>
+      <div class="sv-pick">
+        <label>Mese<select id="mese-a"></select></label>
+        <label>Confronta con<select id="mese-b"></select></label>
+      </div>
+      <p class="sv-note" id="spese-quando">—</p>
+      <div class="sv-line">
+        <span class="sv-delta" id="spese-delta">—</span>
+        <span class="sv-note" id="spese-valori"></span>
+      </div>
+      <div class="sv-chart" id="spese-chart" data-source="movimenti storico"></div>
+      <div class="sv-legend" id="spese-legend" data-source="movimenti storico"></div>
+    </section>
+    <section class="sv-card" id="spese-categorie">
+      <h2>Per categoria</h2>
+      <table class="sv-table" id="tab-cat" data-source="spese_cat" data-row-key="categoria">
+        <thead><tr><th data-field="categoria">Categoria</th><th class="r" data-field="uscite">Uscite</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section class="sv-card" id="spese-negozi">
+      <h2>Dove spendi di più</h2>
+      <table class="sv-table" id="tab-negozi" data-source="negozi" data-row-key="nota">
+        <thead><tr><th data-field="nota">Dove</th><th class="r" data-field="uscite">Uscite</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section class="sv-card" id="spese-ultimi">
+      <h2>Ultimi movimenti</h2>
+      <table class="sv-table" id="tab-ultimi" data-source="ultimi" data-row-key="riga">
+        <thead><tr><th data-field="nota">Cosa</th><th class="r" data-field="importo">Importo</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </section>
+
+  <section class="sv-page" id="soldi">
+    <section class="sv-card" id="soldi-conti">
+      <h2>Conti</h2>
+      <div class="sv-line">
+        <div class="sv-big" data-fill data-source="patrimonio" data-field="totale" data-row="0" data-fmt="eur">—</div>
+        <div class="sv-note">totale dei conti</div>
+      </div>
+      <table class="sv-table" id="tab-conti" data-source="conti" data-row-key="conto">
+        <thead><tr><th data-field="conto">Conto</th><th class="r" data-field="saldo">Saldo</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section class="sv-card" id="soldi-portafoglio">
+      <h2>Portafoglio Trade Republic</h2>
+      <div class="sv-big" data-fill data-source="portafoglio" data-field="valore" data-where="titolo=Totale" data-fmt="eur">—</div>
+      <div class="sv-stats">
+        <div class="sv-stat"><span class="k">Versato</span><span class="v" data-fill data-source="portafoglio" data-field="costo" data-where="titolo=Totale" data-fmt="eur">—</span></div>
+        <div class="sv-stat"><span class="k">Guadagno</span><span class="v" id="port-guad" data-fill data-source="portafoglio" data-field="guadagno" data-where="titolo=Totale" data-fmt="eursign">—</span></div>
+      </div>
+      <table class="sv-table" id="tab-port" data-source="portafoglio" data-row-key="titolo">
+        <thead><tr><th data-field="titolo">Titolo</th><th class="r" data-field="valore">Valore</th><th class="r" data-field="guadagno">Guadagno</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="sv-note" id="port-nota"></p>
+    </section>
+  </section>
+
+  <section class="sv-page" id="addebiti">
+    <div class="sv-alert" id="ritardi" data-source="ritardi" hidden>
+      <span class="t">Da controllare</span>
+      <div class="sv-ritardi-list"></div>
+    </div>
+    <section class="sv-card" id="addebiti-copertura">
+      <div class="sv-line">
+        <h2>Basta il saldo?</h2>
+        <span class="sv-note">fino a fine mese</span>
+      </div>
+      <table class="sv-table" id="tab-cop" data-source="copertura" data-row-key="conto">
+        <thead><tr><th data-field="conto">Conto</th><th class="r" data-field="uscite">Addebiti</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="sv-note">Per ogni conto: le spese programmate da oggi a fine mese e il saldo che c'è adesso.</p>
+    </section>
+    <section class="sv-card" id="addebiti-lista">
+      <div class="sv-line">
+        <h2>Prossime 5 spese</h2>
+        <span class="sv-note">totale <span data-fill data-source="prossime_tot" data-field="totale" data-row="0" data-fmt="eur">—</span></span>
+      </div>
+      <table class="sv-table" id="tab-add" data-source="prossime" data-row-key="nome">
+        <thead><tr><th data-field="nome">Cosa</th><th class="r" data-field="importo">Importo</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="sv-note">Spese programmate: abbonamenti e rate, in ordine di data.</p>
+    </section>
+    <section class="sv-card" id="addebiti-abbonamenti">
+      <div class="sv-line">
+        <h2>I tuoi abbonamenti</h2>
+        <span class="sv-note"><span data-fill data-source="abbonamenti_tot" data-field="mese" data-row="0" data-fmt="eur">—</span> al mese</span>
+      </div>
+      <table class="sv-table" id="tab-abb" data-source="abbonamenti" data-row-key="nome">
+        <thead><tr><th data-field="giorno">Giorno</th><th data-field="nome">Cosa</th><th class="r" data-field="importo">Importo</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="sv-note">In ordine di giorno del mese in cui vengono addebitati. Quelli annuali mostrano anche il mese.</p>
+    </section>
+  </section>
+</div>
+
+<script>
+const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+const oggi = new Date();
+// I dati sono copie salvate dei fogli Google (righe già pronte), aggiornate da Claude ogni 3 ore.
+
+
+// ---- Calcoli ----
+dash.calc('ore_ora', {
+  inputs: ['ore'], title: 'Ore del mese in corso', description: "L'ultima riga del Riepilogo, cioè il mese più recente.",
+  fn: (ore) => (ore.length ? [ore[ore.length - 1]] : []),
+});
+
+dash.calc('spese_tot', {
+  inputs: ['movimenti'], title: 'Uscite ed entrate del mese', description: 'Nel mese più recente di History: somma delle uscite e delle entrate, senza Adjustment, Investments, Transfers e righe escluse.',
+  fn: (movimenti) => {
+    const fuori = ['Adjustment', 'Investments', 'Transfers'];
+    if (!movimenti.length) return [];
+    const ultimo = movimenti.reduce((m, r) => (r.data > m ? r.data : m), '');
+    const ym = ultimo.slice(0, 7);
+    const mese = movimenti.filter((r) => r.data.slice(0, 7) === ym && !r.escluso && !fuori.includes(r.categoria) && r.importo != null);
+    const uscite = -mese.filter((r) => r.importo < 0).reduce((s, r) => s + r.importo, 0);
+    const entrate = mese.filter((r) => r.importo > 0).reduce((s, r) => s + r.importo, 0);
+    return [{ mese: ym, uscite: Math.round(uscite * 100) / 100, entrate: Math.round(entrate * 100) / 100, ultimo }];
+  },
+});
+
+dash.calc('spese_cat', {
+  inputs: ['movimenti'], title: 'Uscite del mese per categoria', description: 'Nel mese più recente di History: uscite per categoria, senza Adjustment, Investments, Transfers e righe escluse.',
+  fn: (movimenti) => {
+    const fuori = ['Adjustment', 'Investments', 'Transfers'];
+    if (!movimenti.length) return [];
+    const ym = movimenti.reduce((m, r) => (r.data > m ? r.data : m), '').slice(0, 7);
+    const per = {};
+    movimenti.filter((r) => r.data.slice(0, 7) === ym && !r.escluso && !fuori.includes(r.categoria) && r.importo < 0)
+      .forEach((r) => { per[r.categoria] = (per[r.categoria] || 0) - r.importo; });
+    return Object.entries(per).map(([categoria, u]) => ({ categoria, uscite: Math.round(u * 100) / 100 })).sort((x, y) => y.uscite - x.uscite);
+  },
+});
+
+dash.calc('ultimi', {
+  inputs: ['movimenti'], title: 'Ultimi movimenti', description: 'Gli ultimi 8 movimenti di History, senza giroconti e investimenti.',
+  fn: (movimenti) => movimenti.filter((r) => r.categoria !== 'Adjustment' && r.categoria !== 'Investments')
+    .slice().sort((x, y) => (x.data === y.data ? y.riga - x.riga : (x.data < y.data ? 1 : -1))).slice(0, 8),
+});
+
+dash.calc('patrimonio', {
+  inputs: ['conti'], title: 'Totale dei conti', description: 'Somma dei saldi dei conti in Settings che hanno un valore.',
+  fn: (conti) => [{ totale: Math.round(conti.reduce((s, c) => s + (c.saldo || 0), 0) * 100) / 100, senza_saldo: conti.filter((c) => c.saldo == null).map((c) => c.conto).join(', ') }],
+});
+
+dash.calc('addebiti', {
+  inputs: ['fisse', 'rate'], title: 'Prossimi addebiti', description: 'Spese fisse attive in arrivo entro 30 giorni, più le rate attive, in ordine di data.',
+  fn: (fisse, rate) => [
+    ...fisse.filter((f) => f.attivo && f.tra_giorni != null && f.tra_giorni >= 0 && f.tra_giorni <= 30)
+      .map((f) => ({ nome: f.nome, data: f.prossimo, importo: f.importo, conto: f.conto, tipo: f.frequenza })),
+    ...rate.filter((r) => r.attivo && r.prossimo).map((r) => ({ nome: r.nome, data: r.prossimo, importo: r.importo, conto: r.conto, tipo: 'Rata' })),
+  ].sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : 0)),
+});
+
+dash.calc('addebiti_tot', {
+  inputs: ['addebiti'], title: 'Totale prossimi addebiti', description: 'Somma degli addebiti in arrivo.',
+  fn: (addebiti) => [{ totale: Math.round(addebiti.reduce((s, a) => s + (a.importo || 0), 0) * 100) / 100, n: addebiti.length }],
+});
+
+dash.calc('ritardi', {
+  inputs: ['fisse'], title: 'Addebiti in ritardo', description: 'Spese fisse attive la cui data prevista è già passata senza pagamento in History.',
+  fn: (fisse) => fisse.filter((f) => f.attivo && f.tra_giorni != null && f.tra_giorni < 0).map((f) => ({ nome: f.nome, data: f.prossimo, importo: f.importo, giorni: -f.tra_giorni })),
+});
+
+dash.calc('ore_giorni', {
+  inputs: ['turni'], title: 'Ore cumulate per giorno', description: 'Somma progressiva delle ore (lavorate o di assenza) giorno per giorno nel mese.',
+  fn: (turni) => {
+    const per = {};
+    turni.forEach((t) => { const h = t.ore != null ? t.ore : (t.assenza || 0); per[t.data] = (per[t.data] || 0) + h; });
+    let c = 0;
+    return Object.keys(per).sort().map((data) => { c += per[data]; return { data, giorno: Number(data.slice(8, 10)), ore: Math.round(per[data] * 100) / 100, cumulato: Math.round(c * 100) / 100 }; });
+  },
+});
+
+dash.calc('ore_media', {
+  inputs: ['turni'], title: 'Media ore per giorno lavorato', description: 'Ore lavorate divise per i giorni con almeno un turno di lavoro.',
+  fn: (turni) => {
+    const lav = turni.filter((t) => /^Lavoro/.test(t.tipo) && t.ore != null);
+    const giorni = new Set(lav.map((t) => t.data)).size;
+    const tot = lav.reduce((s, t) => s + t.ore, 0);
+    return [{ giorni, media: giorni ? Math.round(tot / giorni * 100) / 100 : null }];
+  },
+});
+
+dash.calc('spese_confronto', {
+  inputs: ['movimenti'], title: 'Uscite: questo mese e il precedente', description: 'Uscite fino allo stesso giorno del mese, nel mese più recente di History e in quello prima, con le stesse esclusioni delle spese del mese.',
+  fn: (movimenti) => {
+    const fuori = ['Adjustment', 'Investments', 'Transfers'];
+    if (!movimenti.length) return [];
+    const ultimo = movimenti.reduce((m, r) => (r.data > m ? r.data : m), '');
+    const ym = ultimo.slice(0, 7);
+    const [y, m] = ym.split('-').map(Number);
+    const prec = (m === 1 ? y - 1 : y) + '-' + String(m === 1 ? 12 : m - 1).padStart(2, '0');
+    const giorno = Number(ultimo.slice(8, 10));
+    const somma = (mese) => -movimenti.filter((r) => r.data.slice(0, 7) === mese && Number(r.data.slice(8, 10)) <= giorno && !r.escluso && !fuori.includes(r.categoria) && r.importo < 0).reduce((s, r) => s + r.importo, 0);
+    const corrente = Math.round(somma(ym) * 100) / 100;
+    const precedente = Math.round(somma(prec) * 100) / 100;
+    return [{ mese: ym, mese_prec: prec, giorno, corrente, precedente, differenza: Math.round((corrente - precedente) * 100) / 100 }];
+  },
+});
+
+dash.calc('spese_giorni', {
+  inputs: ['movimenti'], title: 'Uscite cumulate per giorno', description: 'Somma progressiva delle uscite giorno per giorno, nel mese più recente di History e in quello prima.',
+  fn: (movimenti) => {
+    const fuori = ['Adjustment', 'Investments', 'Transfers'];
+    if (!movimenti.length) return [];
+    const ultimo = movimenti.reduce((m, r) => (r.data > m ? r.data : m), '');
+    const ym = ultimo.slice(0, 7);
+    const [y, m] = ym.split('-').map(Number);
+    const prec = (m === 1 ? y - 1 : y) + '-' + String(m === 1 ? 12 : m - 1).padStart(2, '0');
+    const giorniPrec = new Date(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1, 0).getDate();
+    const out = [];
+    [[ym, 'corrente', Number(ultimo.slice(8, 10))], [prec, 'precedente', giorniPrec]].forEach(([mese, nome, fino]) => {
+      const per = {};
+      movimenti.filter((r) => r.data.slice(0, 7) === mese && !r.escluso && !fuori.includes(r.categoria) && r.importo < 0)
+        .forEach((r) => { const g = Number(r.data.slice(8, 10)); per[g] = (per[g] || 0) - r.importo; });
+      let c = 0;
+      for (let g = 1; g <= fino; g++) { c += per[g] || 0; out.push({ mese: nome, giorno: g, cumulato: Math.round(c * 100) / 100 }); }
+    });
+    return out;
+  },
+});
+
+dash.calc('straordinari', {
+  inputs: ['ore'], title: 'Straordinari per mese', description: 'I mesi chiusi del Riepilogo con le ore di straordinario (ore conteggiate oltre la soglia), dal più recente.',
+  fn: (ore) => ore.filter((r) => r.straordinari != null).map((r) => ({ mese: r.mese, straordinari: r.straordinari, conteggiate: r.conteggiate, soglia: r.soglia })).reverse(),
+});
+
+dash.calc('prossime', {
+  inputs: ['fisse', 'rate'], title: 'Prossime 5 spese programmate', description: 'Le 5 spese fisse attive o rate attive con la data di addebito più vicina, da oggi in poi.',
+  fn: (fisse, rate) => [
+    ...fisse.filter((f) => f.attivo && f.prossimo && (f.tra_giorni == null || f.tra_giorni >= 0))
+      .map((f) => ({ nome: f.nome, data: f.prossimo, importo: f.importo, conto: f.conto, tipo: f.frequenza })),
+    ...rate.filter((r) => r.attivo && r.prossimo).map((r) => ({ nome: r.nome, data: r.prossimo, importo: r.importo, conto: r.conto, tipo: 'Rata' })),
+  ].sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : x.nome.localeCompare(y.nome))).slice(0, 5),
+});
+
+dash.calc('prossime_tot', {
+  inputs: ['prossime'], title: 'Totale delle prossime 5 spese', description: 'Somma degli importi delle prossime 5 spese programmate.',
+  fn: (p) => [{ totale: Math.round(p.reduce((s, a) => s + (a.importo || 0), 0) * 100) / 100 }],
+});
+
+dash.calc('abbonamenti', {
+  inputs: ['fisse'], title: 'Abbonamenti per giorno del mese', description: 'Tutte le spese fisse attive, ordinate per giorno del mese del prossimo addebito.',
+  fn: (fisse) => fisse.filter((f) => f.attivo && f.prossimo)
+    .map((f) => ({ nome: f.nome, giorno: Number(f.prossimo.slice(8, 10)), data: f.prossimo, frequenza: f.frequenza, importo: f.importo, costo_mese: f.costo_mese, conto: f.conto }))
+    .sort((x, y) => x.giorno - y.giorno || x.nome.localeCompare(y.nome)),
+});
+
+dash.calc('abbonamenti_tot', {
+  inputs: ['abbonamenti'], title: 'Costo mensile degli abbonamenti', description: 'Somma del costo al mese (gli annuali divisi per 12) di tutti gli abbonamenti attivi.',
+  fn: (a) => [{ mese: Math.round(a.reduce((s, x) => s + (x.costo_mese || 0), 0) * 100) / 100, n: a.length }],
+});
+
+dash.calc('ore_soglia', {
+  inputs: ['ore_ora'], title: 'Ore mancanti o straordinari', description: 'Sotto la soglia: le ore che mancano. Sopra la soglia: le ore di straordinario (conteggiate meno soglia).',
+  fn: (o) => {
+    if (!o.length) return [];
+    const r = o[0];
+    const oltre = Math.round(((r.conteggiate || 0) - (r.soglia || 0)) * 100) / 100;
+    return oltre > 0
+      ? [{ titolo: 'Straordinari', valore: oltre, prep: 'oltre', frase_a: 'Hai già fatto', frase_b: 'di straordinario questo mese' }]
+      : [{ titolo: 'Ore mancanti', valore: r.mancanti, prep: 'su', frase_a: 'Mancano', frase_b: 'alla soglia del mese' }];
+  },
+});
+
+dash.calc('spese_ritmo', {
+  inputs: ['movimenti'], title: 'Ritmo di spesa del mese', description: 'Nel mese più recente: uscite divise per i giorni passati fino all\'ultimo dato, la stima a fine mese con lo stesso ritmo e la spesa singola più grande.',
+  fn: (movimenti) => {
+    const fuori = ['Adjustment', 'Investments', 'Transfers'];
+    if (!movimenti.length) return [];
+    const ultimo = movimenti.reduce((m, r) => (r.data > m ? r.data : m), '');
+    const [y, m, g] = ultimo.split('-').map(Number);
+    const giorni = new Date(y, m, 0).getDate();
+    const us = movimenti.filter((r) => r.data.slice(0, 7) === ultimo.slice(0, 7) && !r.escluso && !fuori.includes(r.categoria) && r.importo < 0);
+    const tot = -us.reduce((s, r) => s + r.importo, 0);
+    const max = us.reduce((a, r) => (!a || r.importo < a.importo ? r : a), null);
+    return [{ media: Math.round(tot / g * 100) / 100, stima: Math.round(tot / g * giorni), max_importo: max ? -max.importo : null, max_nota: max ? max.nota : '' }];
+  },
+});
+
+dash.calc('negozi', {
+  inputs: ['movimenti'], title: 'Dove spendi di più', description: 'Nel mese più recente: uscite raggruppate per nota (negozio o servizio), le 6 più alte.',
+  fn: (movimenti) => {
+    const fuori = ['Adjustment', 'Investments', 'Transfers'];
+    if (!movimenti.length) return [];
+    const ym = movimenti.reduce((m, r) => (r.data > m ? r.data : m), '').slice(0, 7);
+    const per = {};
+    movimenti.filter((r) => r.data.slice(0, 7) === ym && !r.escluso && !fuori.includes(r.categoria) && r.importo < 0).forEach((r) => {
+      const k = String(r.nota || r.categoria).replace(/\s*\(.*?\)\s*$/, '').trim() || r.categoria;
+      const x = per[k] || (per[k] = { nota: k, uscite: 0, volte: 0, categoria: r.categoria });
+      x.uscite -= r.importo; x.volte += 1;
+    });
+    return Object.values(per).map((x) => ({ ...x, uscite: Math.round(x.uscite * 100) / 100 })).sort((a, b) => b.uscite - a.uscite).slice(0, 6);
+  },
+});
+
+dash.calc('copertura', {
+  inputs: ['fisse', 'rate', 'conti'], title: 'Basta il saldo per gli addebiti?', description: 'Per ogni conto: spese fisse e rate attive da oggi a fine mese, confrontate con il saldo attuale in Settings.',
+  fn: (fisse, rate, conti) => {
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const da = iso(d0), a = iso(new Date(d0.getFullYear(), d0.getMonth() + 1, 0));
+    const per = {};
+    [...fisse.filter((f) => f.attivo), ...rate.filter((r) => r.attivo)].filter((x) => x.prossimo && x.prossimo >= da && x.prossimo <= a && x.conto).forEach((x) => {
+      const p = per[x.conto] || (per[x.conto] = { conto: x.conto, uscite: 0, n: 0, fino: a });
+      p.uscite += x.importo || 0; p.n += 1;
+    });
+    return Object.values(per).map((p) => {
+      const c = conti.find((k) => k.conto === p.conto);
+      const saldo = c ? c.saldo : null;
+      const uscite = Math.round(p.uscite * 100) / 100;
+      return { ...p, uscite, saldo, mancano: saldo == null ? null : Math.max(0, Math.round((uscite - saldo) * 100) / 100) };
+    }).sort((x, y) => (y.mancano || 0) - (x.mancano || 0) || y.uscite - x.uscite);
+  },
+});
+
+// ---- Disegno ----
+const root = document.getElementById('dash-root') || document;
+const sv = root.querySelector('.sv');
+const eur = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
+const eur0 = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const FMT = {
+  txt: (x) => String(x),
+  eur: (x) => eur.format(x),
+  eur0: (x) => eur0.format(x),
+  eursign: (x) => (x > 0 ? '+' : '') + eur.format(x),
+  eursign0: (x) => (x > 0 ? '+' : '') + eur0.format(x),
+  ore: (x) => { const h = Math.floor(x); const m = Math.round((x - h) * 60); return h + ' h' + (m ? ' ' + String(m).padStart(2, '0') : ''); },
+  giorno: (s) => { const [y, mo, d] = String(s).split('-').map(Number); const dt = new Date(y, mo - 1, d); return dt.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'numeric' }); },
+  mese: (s) => { const [, mo] = String(s).split('-').map(Number); return MESI[mo - 1].toLowerCase(); },
+};
+// Ogni valore che arriva per la prima volta entra con una piccola dissolvenza
+const visti = new WeakSet();
+function arriva(el) {
+  if (visti.has(el)) return;
+  visti.add(el);
+  el.classList.add('sv-in');
+}
+
+// I numeri grandi salgono fino al valore quando apri una scheda
+const MOTO = !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const CONTA = '.sv-tile .n, .sv-big, .sv-stat .v';
+const CONTABILI = ['eur', 'eur0', 'eursign', 'eursign0', 'ore'];
+const valori = new WeakMap();
+function conta(el, x, f, da) {
+  const fmt = FMT[f] || FMT.txt;
+  const prima = valori.get(el);
+  valori.set(el, x);
+  const pag = el.closest('.sv-page');
+  if (!MOTO || typeof x !== 'number' || !CONTABILI.includes(f) || !el.matches(CONTA) || (pag && !pag.classList.contains('on'))) { el._conta = (el._conta || 0) + 1; el.textContent = fmt(x); return; }
+  const start = da != null ? da : prima != null ? prima : 0;
+  if (start === x) { el.textContent = fmt(x); return; }
+  const id = (el._conta = (el._conta || 0) + 1);
+  const t0 = performance.now();
+  const dur = 950;
+  const passo = (t) => {
+    if (el._conta !== id) return;
+    const k = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - k, 4);
+    const v = start + (x - start) * e;
+    el.textContent = fmt(k < 1 ? (f === 'ore' ? Math.round(v * 4) / 4 : Math.round(v)) : x);
+    if (k < 1) requestAnimationFrame(passo);
+  };
+  el.textContent = fmt(start);
+  requestAnimationFrame(passo);
+}
+function ricontaPagina(p) {
+  p.querySelectorAll(CONTA).forEach((el) => { const x = valori.get(el); if (typeof x === 'number' && CONTABILI.includes(el.dataset.fmt)) conta(el, x, el.dataset.fmt, 0); });
+}
+// righe delle tabelle della scheda aperta che entrano in sequenza
+function righeInFila(p) {
+  if (!MOTO) return;
+  p.querySelectorAll('.sv-table tbody').forEach((tb) => {
+    [...tb.rows].forEach((tr, i) => {
+      tr.classList.remove('sv-row-in');
+      if (i > 12) return;
+      tr.style.setProperty('--d', (120 + i * 45) + 'ms');
+      void tr.offsetWidth;
+      tr.classList.add('sv-row-in');
+    });
+  });
+}
+function luccica(els) {
+  if (!MOTO) return;
+  els.forEach((el) => { if (!el) return; el.classList.remove('sv-shine'); void el.offsetWidth; el.classList.add('sv-shine'); });
+}
+
+function fillOne(el) {
+  const d = dash.data(el.dataset.source);
+  if (d.status === 'loading') { el.classList.add('dash-skeleton'); el.textContent = '—'; return; }
+  el.classList.remove('dash-skeleton');
+  if (d.status !== 'ok') { el.textContent = '—'; return; }
+  const rows = d.data || [];
+  let row;
+  if (el.dataset.where) { const [k, v] = el.dataset.where.split('='); row = rows.find((r) => String(r[k]) === decodeURIComponent(v)); }
+  else row = rows[Number(el.dataset.row || 0)];
+  const x = row ? row[el.dataset.field] : null;
+  if (x == null || x === '') el.textContent = '—';
+  else conta(el, x, el.dataset.fmt || 'txt');
+  if (x != null && x !== '') arriva(el);
+}
+
+function tableState(tbody, d, cols) {
+  tbody.replaceChildren();
+  if (d.status === 'ok') return false;
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.colSpan = cols;
+  if (d.status === 'loading') { td.className = 'dash-skeleton'; }
+  else { const s = document.createElement('div'); s.className = 'sv-fail'; s.textContent = d.status === 'error' ? 'Non caricato' : 'In attesa del permesso'; td.append(s); }
+  tr.append(td);
+  tbody.append(tr);
+  return true;
+}
+
+function cell(tr, text, cls, sub) {
+  const td = document.createElement('td');
+  if (cls) td.className = cls;
+  td.append(document.createTextNode(text));
+  if (sub) { const s = document.createElement('span'); s.className = 'sub'; s.textContent = sub; td.append(s); }
+  tr.append(td);
+  return td;
+}
+
+// Barre e contatore delle ore si riempiono da zero quando la loro scheda è visibile
+function riempi(els) {
+  els.forEach((el) => { el.style.width = '0'; });
+  requestAnimationFrame(() => requestAnimationFrame(() => els.forEach((el) => { el.style.width = el.dataset.w || '0'; })));
+}
+
+function drawTurni() {
+  const tbody = root.querySelector('#tab-turni tbody');
+  const d = dash.data('turni');
+  if (tableState(tbody, d, 3)) return;
+  d.data.slice().reverse().forEach((t) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = encodeURIComponent(t.data) + ',' + encodeURIComponent(t.entrata);
+    const extra = t.tipo !== 'Lavoro' ? t.tipo : (/mattina/i.test(t.note) ? 'turno spezzato, mattina' : /sera/i.test(t.note) ? 'turno spezzato, sera' : '');
+    const td = cell(tr, FMT.giorno(t.data), '', extra);
+    if (/previst/i.test(t.note)) { const p = document.createElement('span'); p.className = 'sv-pill'; p.textContent = 'previsto'; td.insertBefore(p, td.childNodes[1] || null); }
+    cell(tr, t.entrata && t.uscita ? t.entrata + '–' + t.uscita : (t.tipo || '—'));
+    cell(tr, t.ore != null ? FMT.ore(t.ore) : (t.assenza != null ? FMT.ore(t.assenza) : '—'), 'r');
+    tbody.append(tr);
+  });
+}
+
+function drawCat() {
+  const tbody = root.querySelector('#tab-cat tbody');
+  const d = dash.data('spese_cat');
+  if (tableState(tbody, d, 2)) return;
+  const max = Math.max(1, ...d.data.map((r) => r.uscite));
+  d.data.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const col = dash.colors[i % dash.colors.length];
+    const td = document.createElement('td');
+    const dot = document.createElement('span');
+    dot.className = 'sv-dot';
+    dot.style.background = col;
+    td.append(dot, document.createTextNode(r.categoria));
+    const bar = document.createElement('div');
+    bar.className = 'sv-bar';
+    bar.style.background = col;
+    td.append(bar);
+    tr.append(td);
+    cell(tr, eur.format(r.uscite), 'r');
+    tbody.append(tr);
+    bar.dataset.w = (r.uscite / max * 100) + '%';
+  });
+  const bars = [...tbody.querySelectorAll('.sv-bar')];
+  if (root.querySelector('#spese').classList.contains('on')) riempi(bars);
+  else bars.forEach((b) => { b.style.width = b.dataset.w; });
+}
+
+function drawUltimi(sel) {
+  const tbody = root.querySelector(sel + ' tbody');
+  const d = dash.data('ultimi');
+  if (tableState(tbody, d, 2)) return;
+  d.data.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = String(r.riga);
+    cell(tr, r.nota || r.categoria, '', FMT.giorno(r.data) + ' · ' + r.categoria + ' · ' + r.conto);
+    const td = cell(tr, r.importo != null ? FMT.eursign(r.importo) : '—', 'r');
+    if (r.importo > 0) td.classList.add('sv-pos');
+    tbody.append(tr);
+  });
+}
+
+function drawConti() {
+  const tbody = root.querySelector('#tab-conti tbody');
+  const d = dash.data('conti');
+  if (tableState(tbody, d, 2)) return;
+  d.data.forEach((c) => {
+    const tr = document.createElement('tr');
+    const tdc = document.createElement('td');
+    const box = document.createElement('div');
+    box.className = 'sv-conto';
+    const txt = document.createElement('div');
+    const sub = document.createElement('span');
+    sub.className = 'sub';
+    sub.textContent = c.tipo;
+    txt.append(document.createTextNode(c.conto), sub);
+    box.append(logo(c.conto), txt);
+    tdc.append(box);
+    tr.append(tdc);
+    const td = cell(tr, c.saldo == null ? 'non calcolato' : eur.format(c.saldo), 'r');
+    td.style.verticalAlign = 'middle';
+    if (c.saldo == null) td.classList.add('sv-note');
+    tbody.append(tr);
+  });
+}
+
+function drawPort() {
+  const tbody = root.querySelector('#tab-port tbody');
+  const d = dash.data('portafoglio');
+  const nota = root.querySelector('#port-nota');
+  nota.textContent = '';
+  const g = root.querySelector('#port-guad');
+  g.classList.remove('sv-pos', 'sv-neg');
+  if (tableState(tbody, d, 3)) return;
+  const tot = d.data.find((p) => p.titolo === 'Totale');
+  if (tot && tot.guadagno != null) g.classList.add(tot.guadagno >= 0 ? 'sv-pos' : 'sv-neg');
+  d.data.filter((p) => p.titolo !== 'Totale').forEach((p) => {
+    const tr = document.createElement('tr');
+    cell(tr, p.titolo, '', p.quote != null ? p.quote.toLocaleString('it-IT', { maximumFractionDigits: 6 }) + ' quote' : '');
+    cell(tr, p.valore != null ? eur.format(p.valore) : '—', 'r');
+    const gc = cell(tr, p.guadagno != null ? FMT.eursign(p.guadagno) : '—', 'r');
+    if (p.guadagno != null) gc.classList.add(p.guadagno >= 0 ? 'sv-pos' : 'sv-neg');
+    tbody.append(tr);
+  });
+  if (tot && tot.nota) nota.textContent = tot.nota;
+}
+
+function drawStraord() {
+  const tbody = root.querySelector('#tab-straord tbody');
+  const d = dash.data('straordinari');
+  const nota = root.querySelector('#straord-nota');
+  if (tableState(tbody, d, 2)) return;
+  if (!d.data.length) {
+    root.querySelector('#tab-straord').hidden = true;
+    nota.textContent = 'Per ora c\'è solo il mese in corso: ogni mese comparirà qui appena si chiude, con le ore fatte oltre la soglia.';
+    return;
+  }
+  root.querySelector('#tab-straord').hidden = false;
+  nota.textContent = 'Ore conteggiate oltre la soglia del mese.';
+  d.data.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.mese;
+    cell(tr, r.mese, '', r.conteggiate != null && r.soglia != null ? FMT.ore(r.conteggiate) + ' su ' + FMT.ore(r.soglia) : '');
+    const td = cell(tr, r.straordinari > 0 ? '+' + FMT.ore(r.straordinari) : FMT.ore(Math.max(0, r.straordinari)), 'r');
+    if (r.straordinari > 0) td.classList.add('sv-pos');
+    tbody.append(tr);
+  });
+}
+
+function drawAbbonamenti() {
+  const tbody = root.querySelector('#tab-abb tbody');
+  const d = dash.data('abbonamenti');
+  if (tableState(tbody, d, 3)) return;
+  const MB = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+  d.data.forEach((a) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = a.nome;
+    const annuale = a.frequenza === 'Annuale';
+    cell(tr, annuale ? a.giorno + ' ' + MB[Number(a.data.slice(5, 7)) - 1] : String(a.giorno));
+    cell(tr, a.nome, '', (annuale ? 'ogni anno' : 'ogni mese') + ' · ' + a.conto);
+    cell(tr, a.importo != null ? eur.format(a.importo) : '—', 'r');
+    tbody.append(tr);
+  });
+}
+
+// Icone dei conti disegnate a mano, il più possibile simili ai loghi veri (esperimento)
+const ICONE = [
+  [/investment/i, '<rect width="40" height="40" rx="9" fill="#000"/><rect x="9" y="9" width="22" height="22" fill="none" stroke="#fff" stroke-width="2"/><path d="M13 25l5-5 3 3 6-7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M23.5 16H27v3.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'],
+  [/trade republic/i, '<rect width="40" height="40" rx="9" fill="#000"/><rect x="9" y="9" width="22" height="22" fill="none" stroke="#fff" stroke-width="2"/><path d="M14 14.5h8M18 14.5v6.5" stroke="#fff" stroke-width="2.2" stroke-linecap="square"/><path d="M19.5 26v-7h4.2a2.4 2.4 0 0 1 0 4.8h-4.2M23 23.8l3 2.7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>'],
+  [/hype/i, '<rect width="40" height="40" rx="9" fill="#111"/><text x="20" y="25" text-anchor="middle" font-family="Helvetica Neue,Arial,sans-serif" font-weight="800" font-size="13" letter-spacing="-.6" fill="#fff">hype</text><rect x="9" y="29" width="22" height="2.5" rx="1.25" fill="#FFD600"/>'],
+  [/revolut/i, '<rect width="40" height="40" rx="9" fill="#191C1F"/><path d="M13.5 29V11h8.2a5.6 5.6 0 0 1 0 11.2h-8.2M20.5 22.2L27 29" fill="none" stroke="#fff" stroke-width="3.6" stroke-linejoin="round"/>'],
+  [/paypal/i, '<rect width="40" height="40" rx="9" fill="#fff"/><rect x=".5" y=".5" width="39" height="39" rx="8.5" fill="none" stroke="#e3e6ea"/><path d="M15.2 9h7.6c4.6 0 6.6 2.4 5.9 6-.8 4.4-3.9 6.4-8.1 6.4h-2.4l-1.3 7.6h-4.6z" fill="#003087"/><path d="M18.4 13.2h6.4c3.8 0 5.6 2 5 5.1-.7 3.7-3.3 5.3-6.8 5.3h-2.1l-1.1 6.4h-4z" fill="#009CDE" opacity=".9"/><path d="M18.4 13.2h4.8c2.6 0 4.2.6 5 2-.7 3.9-3.6 6.2-8 6.2h-2.4z" fill="#012169"/>'],
+  [/intesa/i, '<rect width="40" height="40" rx="9" fill="#fff"/><rect x=".5" y=".5" width="39" height="39" rx="8.5" fill="none" stroke="#e3e6ea"/><path d="M8 27c4-9 10-14 24-15-8 3-13 8-15 15z" fill="#00843D"/><path d="M14 30c3-6 8-10 18-11-6 2.5-9.5 6-11 11z" fill="#F58220"/>'],
+  [/credit|crédit/i, '<rect width="40" height="40" rx="9" fill="#00519E"/><rect x="21" y="21" width="12" height="12" rx="2" fill="#E2001A"/><path d="M8 20a8 8 0 0 1 13.7-5.6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M8 20a8 8 0 0 0 8 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M24 30v-6l3 3.2 3-3.2v6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>'],
+  [/^cash$|contant/i, '<rect width="40" height="40" rx="9" fill="#2E7D4F"/><rect x="7" y="12" width="26" height="16" rx="2.5" fill="none" stroke="#fff" stroke-width="2"/><circle cx="20" cy="20" r="3.6" fill="none" stroke="#fff" stroke-width="2"/><circle cx="11.5" cy="20" r="1.2" fill="#fff"/><circle cx="28.5" cy="20" r="1.2" fill="#fff"/>'],
+];
+// Icone vere, ritagliate dallo screenshot delle app di Sasha
+const ICONE_APP = [
+  [/trade republic/i, 'icone/tr.png'],
+  [/hype/i, 'icone/hype.png'],
+  [/revolut/i, 'icone/revolut.png'],
+  [/paypal/i, 'icone/paypal.png'],
+  [/intesa/i, 'icone/intesa.png'],
+  [/credit|crédit/i, 'icone/cm.png'],
+];
+function logo(nome) {
+  const app = ICONE_APP.find(([re]) => re.test(nome));
+  if (app) {
+    const im = document.createElement('img');
+    im.className = 'sv-logo sv-logo-img';
+    im.src = app[1];
+    im.alt = '';
+    im.width = 34;
+    im.height = 34;
+    return im;
+  }
+  const el = document.createElement('span');
+  el.className = 'sv-logo';
+  el.setAttribute('aria-hidden', 'true');
+  const ic = ICONE.find(([re]) => re.test(nome));
+  if (!ic) { el.style.background = 'var(--color-fg-muted)'; el.textContent = nome.slice(0, 1).toUpperCase(); return el; }
+  el.innerHTML = '<svg viewBox="0 0 40 40" width="34" height="34">' + ic[1] + '</svg>';
+  return el;
+}
+
+function drawAddebiti() {
+  const tbody = root.querySelector('#tab-add tbody');
+  const d = dash.data('prossime');
+  if (tableState(tbody, d, 2)) return;
+  d.data.forEach((a) => {
+    const tr = document.createElement('tr');
+    cell(tr, a.nome, '', FMT.giorno(a.data) + ' · ' + a.conto + (a.tipo === 'Annuale' || a.tipo === 'Rata' ? ' · ' + a.tipo.toLowerCase() : ''));
+    cell(tr, a.importo != null ? eur.format(a.importo) : '—', 'r');
+    tbody.append(tr);
+  });
+}
+
+function drawNegozi() {
+  const tbody = root.querySelector('#tab-negozi tbody');
+  const d = dash.data('negozi');
+  if (tableState(tbody, d, 2)) return;
+  const max = Math.max(1, ...d.data.map((r) => r.uscite));
+  d.data.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const td = cell(tr, r.nota, '', r.volte === 1 ? '1 volta' : r.volte + ' volte');
+    const bar = document.createElement('div');
+    bar.className = 'sv-bar';
+    bar.style.background = dash.colors[(i + 2) % dash.colors.length];
+    bar.dataset.w = (r.uscite / max * 100) + '%';
+    bar.style.width = bar.dataset.w;
+    td.append(bar);
+    cell(tr, eur.format(r.uscite), 'r');
+    tbody.append(tr);
+  });
+}
+
+function drawCopertura() {
+  const tbody = root.querySelector('#tab-cop tbody');
+  const d = dash.data('copertura');
+  const box = root.querySelector('#oggi-copertura');
+  const list = box.querySelector('.sv-copertura-list');
+  list.replaceChildren();
+  box.hidden = !(d.status === 'ok' && d.data.some((r) => r.mancano > 0));
+  if (!box.hidden) d.data.filter((r) => r.mancano > 0).forEach((r) => {
+    const p = document.createElement('div');
+    p.textContent = 'Su ' + r.conto + ' ci sono ' + eur.format(r.saldo) + ', ma entro fine mese escono ' + eur.format(r.uscite) + ': mancano ' + eur.format(r.mancano) + '.';
+    list.append(p);
+  });
+  if (tableState(tbody, d, 2)) return;
+  if (!d.data.length) {
+    const tr = document.createElement('tr');
+    const td = cell(tr, 'Nessuna spesa programmata fino a fine mese.', 'sv-note');
+    td.colSpan = 2;
+    tbody.append(tr);
+    return;
+  }
+  d.data.forEach((r) => {
+    const tr = document.createElement('tr');
+    const tdc = document.createElement('td');
+    const box2 = document.createElement('div');
+    box2.className = 'sv-conto';
+    const txt = document.createElement('div');
+    const sub = document.createElement('span');
+    sub.className = 'sub';
+    sub.textContent = r.saldo == null ? 'saldo non calcolato' : 'sul conto ' + eur.format(r.saldo);
+    txt.append(document.createTextNode(r.conto), sub);
+    box2.append(logo(r.conto), txt);
+    tdc.append(box2);
+    tr.append(tdc);
+    const td = cell(tr, eur.format(r.uscite), 'r', r.mancano > 0 ? 'mancano ' + eur.format(r.mancano) : r.saldo == null ? '' : 'basta');
+    td.style.verticalAlign = 'middle';
+    const s = td.querySelector('.sub');
+    if (s) s.classList.add(r.mancano > 0 ? 'sv-neg' : 'sv-ok');
+    tbody.append(tr);
+  });
+}
+
+function drawOltre() {
+  const p = root.querySelector('#ore-oltre');
+  const d = dash.data('ore_ora');
+  const r = d.status === 'ok' ? d.data[0] : null;
+  const oltre = r && r.soglia ? r.conteggiate - r.soglia : 0;
+  p.hidden = !(oltre > 0);
+  if (oltre > 0) p.textContent = 'Soglia superata di ' + FMT.ore(oltre) + ': per ora sono ore di straordinario.';
+}
+
+function drawRitardi() {
+  const d = dash.data('ritardi');
+  root.querySelectorAll('.sv-alert[data-source="ritardi"]').forEach((box) => {
+    const list = box.querySelector('.sv-ritardi-list');
+    list.replaceChildren();
+    box.hidden = !(d.status === 'ok' && d.data.length);
+    if (box.hidden) return;
+    d.data.forEach((r) => {
+      const p = document.createElement('div');
+      p.textContent = r.nome + ': atteso ' + FMT.giorno(r.data) + ' (' + eur.format(r.importo) + '), non ancora in History.';
+      list.append(p);
+    });
+  });
+}
+
+function drawMeter() {
+  const fill = root.querySelector('#ore-meter');
+  const d = dash.data('ore_ora');
+  const r = d.status === 'ok' ? d.data[0] : null;
+  fill.style.background = dash.colors[0];
+  const w = r && r.soglia ? Math.min(100, r.conteggiate / r.soglia * 100) + '%' : '0';
+  const prima = fill.dataset.w;
+  fill.dataset.w = w;
+  if (w !== prima) fill.style.width = w;
+}
+
+// Grafico a linee per giorno del mese, con tooltip che segue il dito
+const animati = new Set();
+function lineChart(box, { series, xMax, yMax, guide, fmt, key }) {
+  box.replaceChildren();
+  const W = Math.max(260, box.clientWidth || 0);
+  const H = 176;
+  const yTicks = d3.scaleLinear([0, yMax], [0, 1]).nice().ticks(4);
+  const top = yTicks[yTicks.length - 1] || yMax;
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
+  const probe = svg.append('text').attr('font-size', 12).text(fmt(top));
+  const ml = Math.ceil(probe.node().getComputedTextLength()) + 8;
+  probe.remove();
+  const m = { t: 8, r: 10, b: 22, l: ml };
+  const x = d3.scaleLinear([1, xMax], [m.l, W - m.r]);
+  const y = d3.scaleLinear([0, top], [H - m.b, m.t]);
+  const g = svg.append('g');
+  yTicks.forEach((t) => {
+    g.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(t)).attr('y2', y(t)).attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+    g.append('text').attr('x', m.l - 6).attr('y', y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').attr('font-size', 12).attr('fill', 'var(--color-fg-muted)').text(fmt(t));
+  });
+  [1, Math.round(xMax / 2), xMax].forEach((d) => g.append('text').attr('x', x(d)).attr('y', H - 4).attr('text-anchor', d === 1 ? 'start' : d === xMax ? 'end' : 'middle').attr('font-size', 12).attr('fill', 'var(--color-fg-muted)').text(d));
+  if (guide) svg.append('line').attr('x1', x(1)).attr('y1', y(guide[0])).attr('x2', x(xMax)).attr('y2', y(guide[1])).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+  const line = d3.line().x((d) => x(d.giorno)).y((d) => y(d.v));
+  const prima = !animati.has(key);
+  series.forEach((s) => {
+    if (!s.punti.length) return;
+    const p = svg.append('path').attr('d', line(s.punti)).attr('fill', 'none').attr('stroke', s.colore).attr('stroke-width', s.sottile ? 1.5 : 2.5).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+    if (prima) { const len = p.node().getTotalLength(); p.attr('class', 'sv-draw').style('--len', len); }
+    const ult = s.punti[s.punti.length - 1];
+    if (!s.sottile) svg.append('circle').attr('cx', x(ult.giorno)).attr('cy', y(ult.v)).attr('r', 4).attr('fill', s.colore);
+  });
+  animati.add(key);
+  // tooltip
+  const tip = document.createElement('div');
+  tip.className = 'sv-tip';
+  tip.hidden = true;
+  box.append(tip);
+  const rule = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)').attr('stroke-width', 1).style('display', 'none');
+  const show = (ev) => {
+    const r = box.getBoundingClientRect();
+    const px = (ev.clientX - r.left) * (W / r.width);
+    const gg = Math.max(1, Math.min(xMax, Math.round(x.invert(px))));
+    const righe = series.map((s) => ({ s, p: s.punti.find((d) => d.giorno === gg) })).filter((o) => o.p);
+    if (!righe.length) { tip.hidden = true; rule.style('display', 'none'); return; }
+    rule.attr('x1', x(gg)).attr('x2', x(gg)).style('display', null);
+    tip.replaceChildren();
+    const h = document.createElement('div'); h.className = 'h'; h.textContent = 'Giorno ' + gg; tip.append(h);
+    righe.forEach(({ s, p }) => { const d = document.createElement('div'); const sw = document.createElement('span'); sw.className = 'sv-sw'; sw.style.background = s.colore; d.append(sw, document.createTextNode(s.nome + ': ' + fmt(p.v))); tip.append(d); });
+    tip.hidden = false;
+    const left = x(gg) * (r.width / W);
+    tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px';
+  };
+  svg.on('pointermove pointerdown', show).on('pointerleave', () => { tip.hidden = true; rule.style('display', 'none'); });
+}
+
+function chartState(box, ids) {
+  const st = ids.map((id) => dash.data(id).status);
+  if (st.every((s) => s === 'ok')) return false;
+  box.replaceChildren();
+  box.classList.toggle('dash-skeleton', st.includes('loading'));
+  if (!st.includes('loading')) { const f = document.createElement('div'); f.className = 'sv-fail'; f.style.minHeight = '11rem'; f.textContent = 'Non caricato'; box.append(f); }
+  return true;
+}
+
+function drawOreChart() {
+  const box = root.querySelector('#ore-chart');
+  if (!root.querySelector('#ore').classList.contains('on')) return;
+  if (chartState(box, ['ore_giorni', 'ore_ora'])) return;
+  box.classList.remove('dash-skeleton');
+  const rows = dash.data('ore_giorni').data;
+  const r = dash.data('ore_ora').data[0];
+  if (!rows.length || !r) { box.replaceChildren(); return; }
+  const [yy, mm] = rows[0].data.split('-').map(Number);
+  const giorni = new Date(yy, mm, 0).getDate();
+  const soglia = r.soglia || 0;
+  const ultimo = rows[rows.length - 1].cumulato;
+  lineChart(box, {
+    key: 'ore', xMax: giorni, yMax: Math.max(soglia, ultimo), guide: soglia ? [soglia / giorni, soglia] : null, fmt: (v) => Math.round(v) + ' h',
+    series: [{ nome: 'Ore', colore: dash.colors[0], punti: rows.map((d) => ({ giorno: d.giorno, v: d.cumulato })) }],
+  });
+}
+
+// Uscite di un mese giorno per giorno: dai movimenti salvati, o dallo storico per i mesi più vecchi
+const FUORI = ['Adjustment', 'Investments', 'Transfers'];
+function usciteMese(ym) {
+  const per = {};
+  const mov = dash.data('movimenti');
+  let trovato = false;
+  if (mov.status === 'ok') {
+    mov.data.forEach((r) => {
+      if (r.data.slice(0, 7) !== ym) return;
+      trovato = true;
+      if (r.escluso || FUORI.includes(r.categoria) || !(r.importo < 0)) return;
+      const g = Number(r.data.slice(8, 10));
+      per[g] = (per[g] || 0) - r.importo;
+    });
+  }
+  const st = dash.data('storico');
+  if (!trovato && st.status === 'ok') st.data.forEach((r) => { if (r.mese === ym) per[r.giorno] = (per[r.giorno] || 0) + r.uscite; });
+  return per;
+}
+function mesiDisponibili() {
+  const set = new Set();
+  const mov = dash.data('movimenti');
+  if (mov.status === 'ok') mov.data.forEach((r) => set.add(r.data.slice(0, 7)));
+  const st = dash.data('storico');
+  if (st.status === 'ok') st.data.forEach((r) => set.add(r.mese));
+  return [...set].filter(Boolean).sort().reverse();
+}
+const nomeMese = (ym) => { const [y, m] = ym.split('-').map(Number); return MESI[m - 1] + ' ' + y; };
+const selA = root.querySelector('#mese-a');
+const selB = root.querySelector('#mese-b');
+let sceltaA = null;
+let sceltaB = null;
+function riempiScelte(mesi) {
+  const prima = selA.dataset.mesi;
+  const ora = mesi.join(',');
+  if (prima === ora) return;
+  selA.dataset.mesi = ora;
+  [selA, selB].forEach((sel) => {
+    sel.replaceChildren();
+    mesi.forEach((ym) => { const o = document.createElement('option'); o.value = ym; o.textContent = nomeMese(ym); sel.append(o); });
+  });
+  if (!mesi.includes(sceltaA)) sceltaA = mesi[0] || null;
+  if (!mesi.includes(sceltaB)) sceltaB = mesi[1] || mesi[0] || null;
+  if (sceltaA) selA.value = sceltaA;
+  if (sceltaB) selB.value = sceltaB;
+}
+selA.addEventListener('change', () => { sceltaA = selA.value; animati.delete('spese'); drawSpeseChart(); });
+selB.addEventListener('change', () => { sceltaB = selB.value; animati.delete('spese'); drawSpeseChart(); });
+
+function drawSpeseChart() {
+  const box = root.querySelector('#spese-chart');
+  const leg = root.querySelector('#spese-legend');
+  const delta = root.querySelector('#spese-delta');
+  const valori = root.querySelector('#spese-valori');
+  const quando = root.querySelector('#spese-quando');
+  if (chartState(box, ['movimenti'])) { delta.textContent = '—'; return; }
+  box.classList.remove('dash-skeleton');
+  const mesi = mesiDisponibili();
+  riempiScelte(mesi);
+  if (!sceltaA) { box.replaceChildren(); return; }
+  // fin dove arrivano i dati nel mese più recente (il mese in corso è a metà)
+  const ultimo = dash.data('movimenti').data.reduce((m, r) => (r.data > m ? r.data : m), '');
+  const giorniDi = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+  const fino = (ym) => (ym === ultimo.slice(0, 7) ? Number(ultimo.slice(8, 10)) : giorniDi(ym));
+  const cumula = (ym) => { const per = usciteMese(ym); const out = []; let c = 0; for (let g = 1; g <= fino(ym); g++) { c += per[g] || 0; out.push({ giorno: g, v: Math.round(c * 100) / 100 }); } return out; };
+  const a = cumula(sceltaA);
+  const b = sceltaB && sceltaB !== sceltaA ? cumula(sceltaB) : [];
+  // confronto allo stesso giorno: se uno dei due mesi è a metà, si guarda fin lì
+  const gg = Math.min(fino(sceltaA), b.length ? fino(sceltaB) : fino(sceltaA));
+  const va = (a.find((d) => d.giorno === gg) || a[a.length - 1] || { v: 0 }).v;
+  const vb = b.length ? (b.find((d) => d.giorno === gg) || b[b.length - 1] || { v: 0 }).v : null;
+  delta.classList.remove('sv-pos', 'sv-neg');
+  const intero = gg === giorniDi(sceltaA) && (!b.length || gg === giorniDi(sceltaB));
+  quando.textContent = intero ? 'Uscite del mese intero.' : 'Uscite fino al giorno ' + gg + ' di ciascun mese.';
+  if (vb != null) {
+    const diff = Math.round((va - vb) * 100) / 100;
+    delta.textContent = FMT.eursign(diff);
+    delta.classList.add(diff <= 0 ? 'sv-pos' : 'sv-neg');
+    valori.textContent = nomeMese(sceltaA) + ': ' + eur.format(va) + ' · ' + nomeMese(sceltaB) + ': ' + eur.format(vb);
+  } else {
+    delta.textContent = eur.format(va);
+    valori.textContent = 'scegli un altro mese per confrontare';
+  }
+  if (!root.querySelector('#spese').classList.contains('on')) return;
+  leg.replaceChildren();
+  const series = [
+    ...(b.length ? [{ nome: nomeMese(sceltaB), colore: 'var(--cds-chart-muted)', sottile: true, punti: b }] : []),
+    { nome: nomeMese(sceltaA), colore: dash.colors[0], punti: a },
+  ];
+  lineChart(box, { key: 'spese', xMax: Math.max(28, ...series.map((s) => giorniDi(s === series[series.length - 1] ? sceltaA : sceltaB))), yMax: Math.max(1, ...a.map((d) => d.v), ...b.map((d) => d.v)), fmt: (v) => eur0.format(v), series });
+  series.slice().reverse().forEach((s) => { const sp = document.createElement('span'); const sw = document.createElement('span'); sw.className = 'sv-sw'; sw.style.background = s.colore; sp.append(sw, document.createTextNode(s.nome)); leg.append(sp); });
+}
+
+dash.onData(() => {
+  root.querySelectorAll('[data-fill]').forEach(fillOne);
+  drawMeter();
+  drawTurni();
+  drawCat();
+  drawUltimi('#tab-ultimi');
+  drawUltimi('#tab-oggi-ultimi');
+  drawConti();
+  drawPort();
+  drawAddebiti();
+  drawAbbonamenti();
+  drawStraord();
+  drawRitardi();
+  drawNegozi();
+  drawCopertura();
+  drawOltre();
+  drawOreChart();
+  drawSpeseChart();
+  urgente();
+  const p = root.querySelector('.sv-page.on');
+  if (p && !righeFatte.has(p.id) && [...p.querySelectorAll('.sv-table tbody tr')].some((tr) => !tr.querySelector('.dash-skeleton'))) { righeFatte.add(p.id); righeInFila(p); }
+});
+const righeFatte = new Set();
+// se il prossimo addebito è oggi o domani, il suo riquadro lo fa notare
+function urgente() {
+  const t = root.querySelector('#oggi-tiles .sv-tile[data-go=addebiti]');
+  const a = (dash.data('addebiti').data || [])[0];
+  if (!t || !a || !a.data) return;
+  const [y, m, g] = String(a.data).split('-').map(Number);
+  const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
+  const giorni = Math.round((new Date(y, m - 1, g) - oggi) / 864e5);
+  t.classList.toggle('sv-urgente', giorni >= 0 && giorni <= 1);
+}
+
+// ---- Schede ----
+const nav = root.querySelector('.sv-nav');
+const SCHEDE = ['oggi', 'ore', 'spese', 'soldi', 'addebiti'];
+let schedaPrima = null;
+function apri(id, anima, senzaLink) {
+  if (!SCHEDE.includes(id)) id = 'oggi';
+  const da = sv.classList.contains('f1-on') ? SCHEDE.length : SCHEDE.indexOf(schedaPrima);
+  const a_ = SCHEDE.indexOf(id);
+  sv.style.setProperty('--dx', da < 0 || da === a_ ? '0px' : (a_ > da ? '22px' : '-22px'));
+  schedaPrima = id;
+  sv.classList.remove('f1-on');
+  root.querySelectorAll('.sv-page').forEach((p) => {
+    const on = p.id === id;
+    p.classList.toggle('on', on);
+    p.classList.remove('enter');
+    if (on && anima) { void p.offsetWidth; p.classList.add('enter'); }
+  });
+  nav.querySelectorAll('a[data-tab]').forEach((a) => {
+    if (a.dataset.tab === id) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  if (anima && id === 'ore') { riempi([root.querySelector('#ore-meter')]); luccica([root.querySelector('#ore-meter')]); }
+  if (anima && id === 'spese') { const b = [...root.querySelectorAll('#tab-cat .sv-bar')]; riempi(b); luccica(b.slice(0, 3)); riempi([...root.querySelectorAll('#tab-negozi .sv-bar')]); }
+  if (anima) { const p = root.querySelector('#' + id); ricontaPagina(p); righeInFila(p); }
+  if (id === 'ore') { animati.delete('ore'); drawOreChart(); }
+  if (id === 'spese') { animati.delete('spese'); drawSpeseChart(); }
+  if (id === 'oggi' && anima) { const t = root.querySelector('#oggi-tiles'); t.classList.remove('enter'); void t.offsetWidth; t.classList.add('enter'); }
+  if (!senzaLink) dash.setLink(id);
+}
+// Prima di cambiare scheda torna in cima all'app. Su iPhone la pagina la fa scorrere il contenitore esterno,
+// non la finestra: se la nuova scheda è più corta si restava fermi in fondo a una zona vuota che non rispondeva.
+function suInCima() {
+  if (sv.getBoundingClientRect().top >= 0) return;
+  try { sv.scrollIntoView({ block: 'start', behavior: 'instant' }); } catch (e) { sv.scrollIntoView(true); }
+  if (window.scrollY > 0) window.scrollTo(0, 0);
+}
+// in fase di cattura, così vale anche per la scheda F1
+nav.addEventListener('click', (e) => { if (e.target.closest('a')) suInCima(); }, true);
+nav.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-tab]');
+  if (!a) return;
+  e.preventDefault();
+  apri(a.dataset.tab, true);
+});
+const pill = document.createElement('span');
+pill.className = 'sv-nav-pill';
+pill.setAttribute('aria-hidden', 'true');
+nav.prepend(pill);
+nav.classList.add('has-pill');
+function muoviPill(subito) {
+  const a = sv.classList.contains('f1-on') ? nav.querySelector('a.f1-tab') : nav.querySelector('a[data-tab][aria-current]');
+  nav.querySelectorAll('a').forEach((x) => x.classList.toggle('sv-sel', x === a));
+  if (!a || !a.offsetWidth) { pill.style.opacity = '0'; return; }
+  const primo = pill.style.opacity !== '1';
+  if (subito || primo || !MOTO) pill.style.transition = 'none';
+  pill.style.width = a.offsetWidth + 'px';
+  pill.style.transform = 'translateX(' + a.offsetLeft + 'px)';
+  pill.style.opacity = '1';
+  if (subito || primo || !MOTO) { void pill.offsetWidth; pill.style.transition = ''; }
+  const l = a.offsetLeft, r = l + a.offsetWidth;
+  if (l < nav.scrollLeft || r > nav.scrollLeft + nav.clientWidth) nav.scrollTo({ left: Math.max(0, l - 8), behavior: MOTO ? 'smooth' : 'auto' });
+}
+new MutationObserver(() => muoviPill()).observe(nav, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-current'] });
+new MutationObserver(() => muoviPill()).observe(sv, { attributes: true, attributeFilter: ['class'] });
+addEventListener('resize', () => muoviPill(true));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => muoviPill(true));
+root.querySelectorAll('.sv-tile[data-go]').forEach((b) => b.addEventListener('click', () => { suInCima(); apri(b.dataset.go, true); }));
+const iniziale = location.hash.slice(1);
+// un link che non è di una mia scheda (per esempio #f1) resta com'è: lo apre f1.js
+apri(SCHEDE.includes(iniziale) ? iniziale : 'oggi', true, !SCHEDE.includes(iniziale) && iniziale !== '');
+</script>
+<script src="f1.js?v=d8f7f8ad"></script>
+
+<footer class="lma-foot"><span id="lma-quando">—</span><button type="button" id="lma-esci">Esci</button></footer>
+</div>
+<script>
+(() => {
+  const KEY = 'lma-chiave';
+  const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const enc = (u) => btoa(String.fromCharCode(...new Uint8Array(u)));
+  const login = document.getElementById('lma-login');
+  const err = document.getElementById('lma-err');
+  let pacco = null;
+  let ultimaLettura = 0;
+  async function scarica() {
+    const r = await fetch('dati.enc.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('dati non trovati');
+    pacco = await r.json();
+    ultimaLettura = Date.now();
+    return pacco;
+  }
+  async function chiaveDa(pw, p) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(p.salt), iterations: p.iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+  }
+  async function apri(k, p) {
+    const testo = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(p.iv) }, k, b64(p.ct));
+    return JSON.parse(new TextDecoder().decode(testo));
+  }
+  function mostra(d) {
+    dash._set(d);
+    const q = new Date(d.aggiornato);
+    document.getElementById('lma-quando').textContent = 'Dati aggiornati ' + q.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'numeric' }) + ' alle ' + q.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+  async function salvata() {
+    try { const raw = localStorage.getItem(KEY); return raw ? await crypto.subtle.importKey('raw', b64(raw), 'AES-GCM', false, ['decrypt']) : null; } catch (e) { return null; }
+  }
+  async function avvio() {
+    try { await scarica(); } catch (e) { login.hidden = false; err.textContent = 'Non riesco a scaricare i dati. Controlla la connessione.'; return; }
+    const k = await salvata();
+    if (k) { try { mostra(await apri(k, pacco)); return; } catch (e) { try { localStorage.removeItem(KEY); } catch (e2) {} } }
+    login.hidden = false;
+    setTimeout(() => document.getElementById('lma-pw').focus(), 50);
+  }
+  document.getElementById('lma-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const go = document.getElementById('lma-go');
+    go.disabled = true; err.textContent = '';
+    try {
+      if (!pacco) await scarica();
+      const k = await chiaveDa(document.getElementById('lma-pw').value.trim(), pacco);
+      const d = await apri(k, pacco);
+      try { localStorage.setItem(KEY, enc(await crypto.subtle.exportKey('raw', k))); } catch (e2) {}
+      login.hidden = true;
+      mostra(d);
+    } catch (e2) { err.textContent = 'Password sbagliata.'; }
+    go.disabled = false;
+  });
+  document.getElementById('lma-esci').addEventListener('click', () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); });
+  // tornando sull'app dopo un po', prende i dati nuovi
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible' || Date.now() - ultimaLettura < 10 * 60 * 1000) return;
+    const k = await salvata();
+    if (!k) return;
+    try { const vecchio = pacco && pacco.iv; await scarica(); if (pacco.iv !== vecchio) mostra(await apri(k, pacco)); } catch (e) {}
+  });
+  avvio();
+})();
+</script>
+</body>
+</html>
