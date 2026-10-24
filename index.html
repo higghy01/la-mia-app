@@ -161,6 +161,23 @@ window.dash = (() => {
 .sv-bar { height: 8px; border-radius: 999px; margin-top: 6px; min-width: 3px; width: 0; transition: width 700ms var(--cds-ease-out); }
 .sv-dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
 .sv-pill { display: inline-block; font-size: var(--cds-font-size-caption); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; margin-left: 6px; color: var(--color-warn); vertical-align: 1px; }
+/* Scheda Meteo */
+.sv-meteo-ora { display: flex; align-items: center; gap: var(--cds-gap-md); }
+.sv-meteo-ico { font-size: 3.25rem; line-height: 1; }
+.sv-meteo-ore { display: flex; gap: var(--cds-gap-sm); overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+.sv-meteo-ore::-webkit-scrollbar { display: none; }
+.sv-meteo-h { flex: 0 0 auto; display: grid; justify-items: center; gap: 4px; min-width: 3.25rem; padding: var(--cds-pad-xs) 0; font-variant-numeric: tabular-nums; }
+.sv-meteo-h .i { font-size: 1.5rem; line-height: 1; }
+.sv-meteo-h .t { font-weight: var(--cds-font-weight-medium); }
+.sv-meteo-h .k, .sv-meteo-h .p { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-meteo-g { display: grid; grid-template-columns: 4.5rem 1.75rem 2.5rem minmax(0, 1fr) 2.5rem; align-items: center; gap: var(--cds-gap-sm); padding: 8px 0; border-bottom: 1px solid var(--color-border-line); font-variant-numeric: tabular-nums; }
+.sv-meteo-g:last-child { border-bottom: 0; }
+.sv-meteo-g .i { font-size: 1.35rem; text-align: center; }
+.sv-meteo-g .lo { color: var(--color-fg-muted); text-align: right; }
+.sv-meteo-g .hi { font-weight: var(--cds-font-weight-medium); }
+.sv-meteo-g .d .sub { display: block; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-meteo-rng { position: relative; height: 6px; border-radius: 999px; background: var(--cds-chart-grid); }
+.sv-meteo-rng span { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(90deg, #2a7de1, #e07b39); }
 .sv-pos { color: var(--color-ok); }
 .sv-neg { color: var(--color-bad); }
 .sv-alert { display: grid; gap: 4px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); background: var(--color-panel); }
@@ -254,7 +271,7 @@ window.dash = (() => {
   </header>
 
   <nav class="sv-nav" aria-label="Schede">
-    <a href="#oggi" data-tab="oggi">Oggi</a><a href="#ore" data-tab="ore">Ore</a><a href="#spese" data-tab="spese">Spese</a><a href="#soldi" data-tab="soldi">Soldi</a><a href="#addebiti" data-tab="addebiti">Addebiti</a>
+    <a href="#oggi" data-tab="oggi">Oggi</a><a href="#ore" data-tab="ore">Ore</a><a href="#spese" data-tab="spese">Spese</a><a href="#soldi" data-tab="soldi">Soldi</a><a href="#addebiti" data-tab="addebiti">Addebiti</a><a href="#meteo" data-tab="meteo">Meteo</a>
   </nav>
 
   <section class="sv-page" id="oggi">
@@ -422,6 +439,37 @@ window.dash = (() => {
         <tbody></tbody>
       </table>
       <p class="sv-note" id="port-nota"></p>
+    </section>
+  </section>
+
+  <section class="sv-page" id="meteo">
+    <section class="sv-card" id="meteo-adesso">
+      <div class="sv-line">
+        <h2>Parigi</h2>
+        <span class="sv-note" id="meteo-agg">—</span>
+      </div>
+      <div class="sv-meteo-ora">
+        <span class="sv-meteo-ico" id="meteo-ico" aria-hidden="true"></span>
+        <div>
+          <div class="sv-big" id="meteo-temp"><span class="dash-skeleton">—</span></div>
+          <div class="sv-note" id="meteo-desc">—</div>
+        </div>
+      </div>
+      <div class="sv-stats">
+        <div class="sv-stat"><span class="k">Oggi</span><span class="v" id="meteo-minmax">—</span></div>
+        <div class="sv-stat"><span class="k">Vento</span><span class="v" id="meteo-vento">—</span></div>
+        <div class="sv-stat"><span class="k">Umidità</span><span class="v" id="meteo-umid">—</span></div>
+        <div class="sv-stat"><span class="k">Pioggia oggi</span><span class="v" id="meteo-piog">—</span></div>
+      </div>
+    </section>
+    <section class="sv-card">
+      <h2>Prossime ore</h2>
+      <div class="sv-meteo-ore" id="meteo-ore"></div>
+    </section>
+    <section class="sv-card">
+      <h2>Prossimi giorni</h2>
+      <div id="meteo-giorni"></div>
+      <p class="sv-note">Previsioni MET Norway (yr.no), aggiornate ogni 3 ore.</p>
     </section>
   </section>
 
@@ -1264,8 +1312,89 @@ function drawSpeseChart() {
   series.slice().reverse().forEach((s) => { const sp = document.createElement('span'); const sw = document.createElement('span'); sw.className = 'sv-sw'; sw.style.background = s.colore; sp.append(sw, document.createTextNode(s.nome)); leg.append(sp); });
 }
 
+// ---- Meteo (Parigi) ----
+const METEO = [
+  ['thunder', '⛈️', 'Temporale'], ['sleet', '🌨️', 'Nevischio'], ['snow', '❄️', 'Neve'],
+  ['heavyrainshowers', '🌧️', 'Rovesci forti'], ['lightrainshowers', '🌦️', 'Qualche goccia'], ['rainshowers', '🌦️', 'Rovesci'],
+  ['heavyrain', '🌧️', 'Pioggia forte'], ['lightrain', '🌧️', 'Pioggia leggera'], ['rain', '🌧️', 'Pioggia'],
+  ['fog', '🌫️', 'Nebbia'], ['partlycloudy', '⛅', 'Parzialmente nuvoloso'], ['cloudy', '☁️', 'Nuvoloso'],
+  ['fair', '🌤️', 'Poco nuvoloso'], ['clearsky', '☀️', 'Sereno'],
+];
+function meteoSym(s) {
+  s = String(s || '');
+  const notte = /_night$/.test(s);
+  const base = s.replace(/_(day|night|polartwilight)$/, '');
+  const m = METEO.find(([k]) => base.startsWith(k)) || ['', '🌡️', '—'];
+  let ico = m[1];
+  if (notte && base === 'clearsky') ico = '🌙';
+  if (notte && base === 'fair') ico = '🌙';
+  return { ico, desc: m[2] };
+}
+const gradi = (v) => (v == null || isNaN(v) ? '—' : Math.round(v) + '°');
+const mm = (v) => (v ? (v < 10 ? String(Math.round(v * 10) / 10).replace('.', ',') : Math.round(v)) + ' mm' : '0 mm');
+function giornoMeteo(s, i) {
+  if (i === 0) return 'Oggi';
+  if (i === 1) return 'Domani';
+  const [y, m, g] = s.split('-').map(Number);
+  return new Date(y, m - 1, g).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
+}
+function drawMeteo() {
+  const d = dash.data('meteo');
+  const rows = d.status === 'ok' ? d.data || [] : [];
+  const now = rows.find((r) => r.tipo === 'adesso');
+  if (!now) {
+    if (d.status === 'error' || d.status === 'missing') root.querySelector('#meteo-temp').innerHTML = '<span class="sv-fail">Meteo non disponibile</span>';
+    return;
+  }
+  const giorni = rows.filter((r) => r.tipo === 'giorno');
+  const ore = rows.filter((r) => r.tipo === 'ora');
+  const s = meteoSym(now.simbolo);
+  root.querySelector('#meteo-ico').textContent = s.ico;
+  root.querySelector('#meteo-temp').textContent = gradi(now.temp);
+  root.querySelector('#meteo-desc').textContent = s.desc;
+  const ora = String(now.quando).slice(11, 16);
+  root.querySelector('#meteo-agg').textContent = 'previsione delle ' + ora;
+  const g0 = giorni[0];
+  root.querySelector('#meteo-minmax').textContent = g0 ? gradi(g0.min) + ' / ' + gradi(g0.max) : '—';
+  root.querySelector('#meteo-vento').textContent = now.vento != null ? now.vento + ' km/h' : '—';
+  root.querySelector('#meteo-umid').textContent = now.umidita != null ? Math.round(now.umidita) + '%' : '—';
+  root.querySelector('#meteo-piog').textContent = g0 ? mm(g0.pioggia) : '—';
+  const box = root.querySelector('#meteo-ore');
+  box.replaceChildren(...ore.filter((r, i) => i % 2 === 0).slice(0, 12).map((r, i) => {
+    const e = document.createElement('div');
+    e.className = 'sv-meteo-h';
+    const x = meteoSym(r.simbolo);
+    e.innerHTML = '<span class="k"></span><span class="i" aria-hidden="true"></span><span class="t"></span><span class="p"></span>';
+    e.querySelector('.k').textContent = i === 0 ? 'Ora' : String(r.quando).slice(11, 13);
+    e.querySelector('.i').textContent = x.ico;
+    e.querySelector('.i').title = x.desc;
+    e.querySelector('.t').textContent = gradi(r.temp);
+    e.querySelector('.p').textContent = r.pioggia ? mm(r.pioggia) : '';
+    return e;
+  }));
+  const lo = Math.min(...giorni.map((g) => g.min)), hi = Math.max(...giorni.map((g) => g.max));
+  const span = Math.max(1, hi - lo);
+  root.querySelector('#meteo-giorni').replaceChildren(...giorni.map((g, i) => {
+    const e = document.createElement('div');
+    e.className = 'sv-meteo-g';
+    const x = meteoSym(g.simbolo);
+    e.innerHTML = '<span class="d"><span class="n"></span><span class="sub"></span></span><span class="i" aria-hidden="true"></span><span class="lo"></span><span class="sv-meteo-rng"><span></span></span><span class="hi"></span>';
+    e.querySelector('.n').textContent = giornoMeteo(g.quando, i);
+    e.querySelector('.sub').textContent = g.pioggia >= 0.5 ? mm(g.pioggia) : '';
+    e.querySelector('.i').textContent = x.ico;
+    e.title = x.desc;
+    e.querySelector('.lo').textContent = gradi(g.min);
+    e.querySelector('.hi').textContent = gradi(g.max);
+    const b = e.querySelector('.sv-meteo-rng span');
+    b.style.left = ((g.min - lo) / span * 100) + '%';
+    b.style.right = ((hi - g.max) / span * 100) + '%';
+    return e;
+  }));
+}
+
 dash.onData(() => {
   root.querySelectorAll('[data-fill]').forEach(fillOne);
+  drawMeteo();
   drawMeter();
   drawTurni();
   drawCat();
@@ -1300,7 +1429,7 @@ function urgente() {
 
 // ---- Schede ----
 const nav = root.querySelector('.sv-nav');
-const SCHEDE = ['oggi', 'ore', 'spese', 'soldi', 'addebiti'];
+const SCHEDE = ['oggi', 'ore', 'spese', 'soldi', 'addebiti', 'meteo'];
 let schedaPrima = null;
 function apri(id, anima, senzaLink) {
   if (!SCHEDE.includes(id)) id = 'oggi';
@@ -1369,7 +1498,7 @@ const iniziale = location.hash.slice(1);
 // un link che non è di una mia scheda (per esempio #f1) resta com'è: lo apre f1.js
 apri(SCHEDE.includes(iniziale) ? iniziale : 'oggi', true, !SCHEDE.includes(iniziale) && iniziale !== '');
 </script>
-<script src="f1.js?v=9abe2f52"></script>
+<script src="f1.js?v=dfe8b938"></script>
 
 <footer class="lma-foot"><span id="lma-quando">—</span><button type="button" id="lma-esci">Esci</button></footer>
 </div>
