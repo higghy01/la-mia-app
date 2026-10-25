@@ -54,6 +54,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-fami
 #lma-login button { font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 999px; border: 0; background: var(--color-fg); color: var(--color-bg); cursor: pointer; }
 #lma-login button[disabled] { opacity: .6; }
 #lma-err { color: var(--color-bad); min-height: 1.2em; }
+.lma-foot div { display: flex; gap: 14px; }
+#lma-notif { position: fixed; inset: 0; z-index: 60; display: grid; place-items: end center; background: rgba(0,0,0,.35); padding: 16px; }
+#lma-notif[hidden] { display: none; }
+#lma-notif section { width: 100%; max-width: 26rem; box-sizing: border-box; background: var(--color-panel); border-radius: 20px; padding: 20px; display: grid; gap: 12px; margin-bottom: env(safe-area-inset-bottom); }
+#lma-notif h2 { margin: 0; font-size: 19px; }
+#lma-notif p { margin: 0; color: var(--color-fg-muted); font-size: 15px; line-height: 1.45; }
+#lma-notif textarea { font: 12px ui-monospace, Menlo, monospace; height: 4.5em; resize: none; padding: 8px; border-radius: 10px; border: 1px solid var(--color-border-line); background: var(--color-bg); color: var(--color-fg); }
+#lma-notif .riga { display: flex; gap: 8px; flex-wrap: wrap; }
+#lma-notif button { font: inherit; font-size: 16px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--color-border-line); background: none; color: var(--color-fg); cursor: pointer; }
+#lma-notif button.primo { background: var(--color-fg); color: var(--color-bg); border-color: var(--color-fg); }
+#lma-notif [hidden] { display: none; }
 .lma-u { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 </style>
 <script src="d3.min.js"></script>
@@ -1624,7 +1635,20 @@ apri(SCHEDE.includes(iniziale) ? iniziale : 'oggi', true, !SCHEDE.includes(inizi
 </script>
 <script src="f1.js?v=0e1c11e3"></script>
 
-<footer class="lma-foot"><span id="lma-quando">—</span><button type="button" id="lma-esci">Esci</button></footer>
+<footer class="lma-foot"><span id="lma-quando">—</span><div><button type="button" id="lma-notif-apri">Notifiche</button><button type="button" id="lma-esci">Esci</button></div></footer>
+</div>
+<div id="lma-notif" hidden>
+  <section role="dialog" aria-labelledby="lma-notif-t">
+    <h2 id="lma-notif-t">Notifiche</h2>
+    <p id="lma-notif-msg"></p>
+    <textarea id="lma-notif-codice" readonly hidden></textarea>
+    <div class="riga">
+      <button type="button" class="primo" id="lma-notif-copia" hidden>Copia il codice</button>
+      <button type="button" id="lma-notif-prova" hidden>Notifica di prova</button>
+      <button type="button" id="lma-notif-off" hidden>Disattiva</button>
+      <button type="button" id="lma-notif-chiudi">Chiudi</button>
+    </div>
+  </section>
 </div>
 <script>
 (() => {
@@ -1688,6 +1712,64 @@ apri(SCHEDE.includes(iniziale) ? iniziale : 'oggi', true, !SCHEDE.includes(inizi
     try { const vecchio = pacco && pacco.iv; await scarica(); if (pacco.iv !== vecchio) mostra(await apri(k, pacco)); } catch (e) {}
   });
   avvio();
+})();
+</script>
+<script>
+// Notifiche push (gestite dal thread "Notifiche push nell'app"): service worker sw.js + iscrizione.
+(() => {
+  const VAPID = 'BD24VnJU4esbwB7XoMwEwM9yNHiCxQ8_9gwXpIwOECYzj01JNakVZtHzii4QhLNeiddQTZB_gE0YZGxYNahvVKI';
+  const $ = (id) => document.getElementById(id);
+  const box = $('lma-notif'), msg = $('lma-notif-msg'), cod = $('lma-notif-codice');
+  const ok = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const reg = ok ? navigator.serviceWorker.register('sw.js').catch(() => null) : Promise.resolve(null);
+  const chiave = () => Uint8Array.from(atob(VAPID.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - VAPID.length % 4) % 4)), (c) => c.charCodeAt(0));
+  const vedi = (testo, codice) => {
+    msg.textContent = testo;
+    cod.hidden = $('lma-notif-copia').hidden = $('lma-notif-off').hidden = !codice;
+    $('lma-notif-prova').hidden = !codice;
+    if (codice) cod.value = codice;
+    box.hidden = false;
+  };
+  async function stato() {
+    const r = await reg;
+    const s = r && (await r.pushManager.getSubscription());
+    $('lma-notif-apri').textContent = s ? 'Notifiche ✓' : 'Notifiche';
+    return s;
+  }
+  stato().catch(() => {});
+  $('lma-notif-apri').addEventListener('click', async () => {
+    if (!ok) {
+      const home = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+      return vedi(home ? 'Questo telefono non supporta le notifiche delle app web (serve iOS 16.4 o più recente).'
+        : 'Per ricevere le notifiche apri La mia app dall\'icona sulla schermata Home (in Safari: Condividi → Aggiungi alla schermata Home), poi tocca di nuovo Notifiche.');
+    }
+    try {
+      const p = await Notification.requestPermission();
+      if (p !== 'granted') return vedi('Le notifiche sono bloccate. Puoi riattivarle in Impostazioni → Notifiche → La mia app.');
+      const r = await reg || (await navigator.serviceWorker.ready);
+      let s = await r.pushManager.getSubscription();
+      if (!s) s = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chiave() });
+      stato();
+      vedi('Notifiche attive su questo telefono. Se non l\'hai già fatto, copia il codice e incollalo nella chat con Claude: senza, Claude non sa a chi mandarle.', JSON.stringify(s.toJSON()));
+    } catch (e) { vedi('Non sono riuscito ad attivarle: ' + (e && e.message ? e.message : e)); }
+  });
+  $('lma-notif-copia').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(cod.value); $('lma-notif-copia').textContent = 'Copiato ✓'; }
+    catch (e) { cod.focus(); cod.select(); }
+    setTimeout(() => { $('lma-notif-copia').textContent = 'Copia il codice'; }, 2000);
+  });
+  $('lma-notif-prova').addEventListener('click', async () => {
+    const r = await reg;
+    if (r) r.showNotification('La mia app', { body: 'Così appaiono le notifiche sul telefono.', icon: 'icona-180.png', tag: 'prova' });
+  });
+  $('lma-notif-off').addEventListener('click', async () => {
+    const s = await stato();
+    if (s) await s.unsubscribe();
+    stato();
+    vedi('Notifiche disattivate su questo telefono.');
+  });
+  $('lma-notif-chiudi').addEventListener('click', () => { box.hidden = true; });
+  box.addEventListener('click', (e) => { if (e.target === box) box.hidden = true; });
 })();
 </script>
 </body>
