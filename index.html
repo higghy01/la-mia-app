@@ -161,6 +161,39 @@ window.dash = (() => {
 .sv-bar { height: 8px; border-radius: 999px; margin-top: 6px; min-width: 3px; width: 0; transition: width 700ms var(--cds-ease-out); }
 .sv-dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
 .sv-pill { display: inline-block; font-size: var(--cds-font-size-caption); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; margin-left: 6px; color: var(--color-warn); vertical-align: 1px; }
+/* Scheda Ore: calendario, settimane, come lavori */
+.sv-stima { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.sv-stima b { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+.sv-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.sv-cal .h { text-align: center; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding-bottom: 2px; }
+.sv-cal .g { appearance: none; font: inherit; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; color: var(--color-fg); aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 10px; background: var(--cds-chart-grid); display: grid; place-items: center; cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent; transition: transform 200ms var(--cds-ease-out), box-shadow 200ms; }
+.sv-cal .g.vuoto { background: transparent; cursor: default; }
+.sv-cal .g.futuro { opacity: .45; }
+.sv-cal .g.oggi { box-shadow: inset 0 0 0 2px var(--color-fg); }
+.sv-cal .g.sel { transform: scale(1.08); box-shadow: 0 0 0 2px var(--color-fg); z-index: 1; }
+.sv-cal .g.chiaro { color: #fff; }
+.sv-cal .g .x { position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; opacity: .8; }
+.sv-cal-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-cal-leg span { display: inline-flex; align-items: center; gap: 5px; }
+.sv-cal-leg i { width: .7rem; height: .7rem; border-radius: 3px; display: inline-block; }
+.sv-cal-det { margin: 0; min-height: 2.6em; font-size: var(--cds-font-size-body); }
+.sv-cal-det .sub { display: block; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-sett { display: grid; gap: var(--cds-gap-sm); }
+.sv-sett-r { display: grid; gap: 6px; }
+.sv-sett-r .l { display: flex; justify-content: space-between; gap: var(--cds-gap-sm); font-variant-numeric: tabular-nums; }
+.sv-sett-r .l .sub { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.sv-track { position: relative; height: 10px; border-radius: 999px; background: var(--cds-chart-grid); }
+.sv-track .sv-bar { margin-top: 0; height: 100%; }
+.sv-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--color-fg); opacity: .55; }
+.sv-stack { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--cds-chart-grid); }
+.sv-stack span { height: 100%; width: 0; transition: width 800ms var(--cds-ease-out); }
+.sv-stack span + span { border-left: 2px solid var(--color-panel); }
+@media (prefers-reduced-motion: no-preference) {
+  .sv-cal.pop .g:not(.vuoto) { animation: sv-pop 420ms cubic-bezier(.34,1.4,.5,1) both; animation-delay: var(--d, 0ms); }
+  @keyframes sv-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+  .sv-cal .g.futuro { animation-name: sv-pop-f !important; }
+  @keyframes sv-pop-f { from { opacity: 0; transform: scale(.6); } to { opacity: .45; transform: none; } }
+}
 .sv-pos { color: var(--color-ok); }
 .sv-neg { color: var(--color-bad); }
 .sv-alert { display: grid; gap: 4px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); background: var(--color-panel); }
@@ -316,6 +349,17 @@ window.dash = (() => {
         <div class="sv-stat"><span class="k">In giorno festivo</span><span class="v" data-fill data-source="ore_ora" data-field="festivo" data-row="0" data-fmt="ore">—</span></div>
         <div class="sv-stat"><span class="k">Ferie, permessi, malattia</span><span class="v" data-fill data-source="ore_ora" data-field="assenze" data-row="0" data-fmt="ore">—</span></div>
       </div>
+      <p class="sv-stima" id="ore-stima" hidden></p>
+    </section>
+    <section class="sv-card" id="ore-cal-card">
+      <div class="sv-line"><h2>Calendario</h2><span class="sv-note">tocca un giorno</span></div>
+      <div class="sv-cal" id="ore-cal" role="grid" aria-label="Calendario delle ore del mese"></div>
+      <div class="sv-cal-leg" id="ore-cal-leg"></div>
+      <p class="sv-cal-det" id="ore-cal-det" aria-live="polite"></p>
+    </section>
+    <section class="sv-card" id="ore-sett-card">
+      <div class="sv-line"><h2>Settimane</h2><span class="sv-note">la tacca è a 30 h, il contratto</span></div>
+      <div class="sv-sett" id="ore-sett"></div>
     </section>
     <section class="sv-card" id="ore-andamento">
       <h2>Andamento del mese</h2>
@@ -324,6 +368,17 @@ window.dash = (() => {
       <div class="sv-stats">
         <div class="sv-stat"><span class="k">Media per giorno lavorato</span><span class="v" data-fill data-source="ore_media" data-field="media" data-row="0" data-fmt="ore">—</span></div>
         <div class="sv-stat"><span class="k">Giorni lavorati</span><span class="v" data-fill data-source="ore_media" data-field="giorni" data-row="0">—</span></div>
+      </div>
+    </section>
+    <section class="sv-card" id="ore-come">
+      <h2>Come lavori</h2>
+      <div class="sv-stack" id="ore-fasce" aria-hidden="true"></div>
+      <div class="sv-cal-leg" id="ore-fasce-leg"></div>
+      <div class="sv-stats">
+        <div class="sv-stat"><span class="k">Turni spezzati</span><span class="v" id="come-spezzati">—</span></div>
+        <div class="sv-stat"><span class="k">Turno più lungo</span><span class="v" id="come-lungo">—</span></div>
+        <div class="sv-stat"><span class="k">Giorni liberi finora</span><span class="v" id="come-liberi">—</span></div>
+        <div class="sv-stat"><span class="k">Entrata più frequente</span><span class="v" id="come-entrata">—</span></div>
       </div>
     </section>
     <section class="sv-card" id="ore-straordinari">
@@ -1264,8 +1319,206 @@ function drawSpeseChart() {
   series.slice().reverse().forEach((s) => { const sp = document.createElement('span'); const sw = document.createElement('span'); sw.className = 'sv-sw'; sw.style.background = s.colore; sp.append(sw, document.createTextNode(s.nome)); leg.append(sp); });
 }
 
+// ---- Scheda Ore: stima, calendario, settimane, come lavori ----
+const SETTIMANA = 30; // ore a settimana da contratto (30 h su 6 giorni)
+function oreDelMese() {
+  const t = dash.data('turni');
+  const o = dash.data('ore_ora');
+  if (t.status !== 'ok' || !t.data.length) return null;
+  const [y, m] = t.data[0].data.split('-').map(Number);
+  const giorni = {};
+  t.data.forEach((r) => {
+    const g = Number(r.data.slice(8, 10));
+    const x = giorni[g] || (giorni[g] = { ore: 0, assenza: 0, turni: [], tipi: new Set() });
+    if (r.ore != null) x.ore += r.ore;
+    if (r.assenza != null) x.assenza += r.assenza;
+    x.turni.push(r);
+    x.tipi.add(r.tipo);
+  });
+  const n = new Date(y, m, 0).getDate();
+  const corrente = oggi.getFullYear() === y && oggi.getMonth() + 1 === m;
+  const fin = corrente ? oggi.getDate() : n;
+  return { y, m, n, giorni, corrente, fin, riep: o.status === 'ok' ? o.data[0] : null };
+}
+const hh = (x) => FMT.ore(Math.round(x * 4) / 4);
+function drawStima() {
+  const p = root.querySelector('#ore-stima');
+  const M = oreDelMese();
+  if (!M || !M.corrente || !M.riep || M.fin < 5) { p.hidden = true; return; }
+  const stima = M.riep.conteggiate / M.fin * M.n;
+  const oltre = stima - (M.riep.soglia || 0);
+  p.replaceChildren();
+  const b = document.createElement('b');
+  b.textContent = 'circa ' + Math.round(stima) + ' h';
+  p.append('Di questo passo chiudi il mese con ', b);
+  if (oltre > 0) { const b2 = document.createElement('b'); b2.textContent = Math.round(oltre) + ' h'; p.append(', cioè ', b2, ' di straordinario.'); }
+  else p.append(', ' + Math.round(-oltre) + ' h sotto la soglia.');
+  p.hidden = false;
+}
+const DOW = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
+let calSel = null;
+function giornoDet(M, g) {
+  const p = root.querySelector('#ore-cal-det');
+  const x = M.giorni[g];
+  const dt = new Date(M.y, M.m - 1, g);
+  const nome = dt.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+  p.replaceChildren(document.createTextNode(nome.charAt(0).toUpperCase() + nome.slice(1)));
+  const s = document.createElement('span');
+  s.className = 'sub';
+  if (!x) s.textContent = M.corrente && g > M.fin ? 'Nessun turno segnato' : 'Giorno libero';
+  else {
+    const lav = x.turni.filter((t) => t.entrata && t.uscita).map((t) => t.entrata + '–' + t.uscita);
+    const ass = x.turni.filter((t) => t.assenza != null).map((t) => t.tipo);
+    const parti = [];
+    if (lav.length) parti.push(lav.join(' e ') + ' · ' + hh(x.ore));
+    if (ass.length) parti.push(ass.join(', ') + ' · ' + hh(x.assenza));
+    if (x.tipi.has('Lavoro festivo')) parti.push('festivo');
+    if (x.turni.some((t) => /previst/i.test(t.note))) parti.push('previsto');
+    s.textContent = parti.join(' — ');
+  }
+  p.append(s);
+}
+function drawCal() {
+  const box = root.querySelector('#ore-cal');
+  const M = oreDelMese();
+  if (!M) { box.replaceChildren(); return; }
+  const blu = dash.colors[0];
+  const max = Math.max(8, ...Object.values(M.giorni).map((x) => x.ore));
+  const els = DOW.map((d) => { const h = document.createElement('div'); h.className = 'h'; h.textContent = d; return h; });
+  const primo = (new Date(M.y, M.m - 1, 1).getDay() + 6) % 7;
+  for (let i = 0; i < primo; i++) { const v = document.createElement('div'); v.className = 'g vuoto'; els.push(v); }
+  for (let g = 1; g <= M.n; g++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'g';
+    b.textContent = g;
+    b.dataset.g = g;
+    b.style.setProperty('--d', (g * 14) + 'ms');
+    const x = M.giorni[g];
+    if (x && x.ore > 0) {
+      const pct = Math.round(25 + 75 * x.ore / max);
+      b.style.background = 'color-mix(in srgb, ' + blu + ' ' + pct + '%, var(--cds-chart-grid))';
+      if (pct > 55) b.classList.add('chiaro');
+    } else if (x && x.assenza > 0) {
+      b.style.background = 'color-mix(in srgb, var(--color-ok) 70%, var(--cds-chart-grid))';
+      b.classList.add('chiaro');
+    }
+    if (x && x.turni.filter((t) => t.entrata).length > 1) { const d = document.createElement('span'); d.className = 'x'; b.append(d); }
+    if (M.corrente && g > M.fin) b.classList.add('futuro');
+    if (M.corrente && g === M.fin) b.classList.add('oggi');
+    b.setAttribute('aria-label', g + (x ? ', ' + hh(x.ore + x.assenza) : ', libero'));
+    els.push(b);
+  }
+  box.replaceChildren(...els);
+  const sel = calSel && calSel <= M.n ? calSel : (M.corrente ? M.fin : M.n);
+  box.querySelector('.g[data-g="' + sel + '"]')?.classList.add('sel');
+  giornoDet(M, sel);
+  if (!box.dataset.ok) {
+    box.dataset.ok = '1';
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('.g[data-g]');
+      if (!b) return;
+      calSel = Number(b.dataset.g);
+      box.querySelectorAll('.g.sel').forEach((x) => x.classList.remove('sel'));
+      b.classList.add('sel');
+      const N = oreDelMese();
+      if (N) giornoDet(N, calSel);
+    });
+  }
+  const leg = root.querySelector('#ore-cal-leg');
+  const voce = (bg, t) => { const s = document.createElement('span'); const i = document.createElement('i'); i.style.background = bg; s.append(i, t); return s; };
+  const dot = document.createElement('span'); dot.textContent = '• turno spezzato';
+  leg.replaceChildren(voce('color-mix(in srgb, ' + blu + ' 35%, var(--cds-chart-grid))', 'poche ore'), voce(blu, 'tante ore'), voce('color-mix(in srgb, var(--color-ok) 70%, var(--cds-chart-grid))', 'ferie, permessi'), dot);
+}
+function popCal() {
+  const c = root.querySelector('#ore-cal');
+  if (!MOTO || !c) return;
+  c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+}
+function drawSett() {
+  const box = root.querySelector('#ore-sett');
+  const M = oreDelMese();
+  if (!M) { box.replaceChildren(); return; }
+  const sett = [];
+  for (let g = 1; g <= M.n; g++) {
+    const dow = (new Date(M.y, M.m - 1, g).getDay() + 6) % 7;
+    if (!sett.length || dow === 0) sett.push({ da: g, a: g, ore: 0, giorni: 0 });
+    const s = sett[sett.length - 1];
+    s.a = g;
+    const x = M.giorni[g];
+    if (x) { s.ore += x.ore + x.assenza; s.giorni++; }
+  }
+  const vis = sett.filter((s) => !M.corrente || s.da <= M.fin);
+  const top = Math.max(SETTIMANA, ...vis.map((s) => s.ore)) * 1.08;
+  const mese = MESI[M.m - 1].slice(0, 3).toLowerCase();
+  box.replaceChildren(...vis.slice().reverse().map((s) => {
+    const r = document.createElement('div');
+    r.className = 'sv-sett-r';
+    const l = document.createElement('div');
+    l.className = 'l';
+    const a = document.createElement('span');
+    a.textContent = s.da === s.a ? s.da + ' ' + mese : s.da + '–' + s.a + ' ' + mese;
+    const sub = document.createElement('span');
+    sub.className = 'sub';
+    const inCorso = M.corrente && s.a >= M.fin;
+    sub.textContent = ' · ' + s.giorni + (s.giorni === 1 ? ' giorno' : ' giorni') + (inCorso ? ', in corso' : '');
+    a.append(sub);
+    const v = document.createElement('span');
+    v.textContent = hh(s.ore);
+    if (s.ore >= SETTIMANA) v.className = 'sv-pos';
+    l.append(a, v);
+    const t = document.createElement('div');
+    t.className = 'sv-track';
+    const bar = document.createElement('div');
+    bar.className = 'sv-bar';
+    bar.style.background = s.ore >= SETTIMANA ? 'var(--color-ok)' : dash.colors[0];
+    bar.dataset.w = (s.ore / top * 100) + '%';
+    bar.style.width = bar.dataset.w;
+    const mk = document.createElement('div');
+    mk.className = 'sv-mark';
+    mk.style.left = (SETTIMANA / top * 100) + '%';
+    t.append(bar, mk);
+    r.append(l, t);
+    return r;
+  }));
+}
+function drawCome() {
+  const M = oreDelMese();
+  const st = root.querySelector('#ore-fasce');
+  if (!M) { st.replaceChildren(); return; }
+  const fasce = [['Mattina', 0], ['Pomeriggio', 0], ['Sera', 0]];
+  const entrate = {};
+  let lungo = null;
+  let spezzati = 0;
+  Object.entries(M.giorni).forEach(([g, x]) => {
+    const lav = x.turni.filter((t) => t.entrata && t.ore != null);
+    if (lav.length > 1) spezzati++;
+    lav.forEach((t) => {
+      const h = Number(t.entrata.split(':')[0]);
+      fasce[h < 12 ? 0 : h < 17 ? 1 : 2][1] += t.ore;
+      entrate[t.entrata] = (entrate[t.entrata] || 0) + 1;
+    });
+    if (x.ore > 0 && (!lungo || x.ore > lungo.ore)) lungo = { g: Number(g), ore: x.ore };
+  });
+  const tot = fasce.reduce((s, f) => s + f[1], 0) || 1;
+  st.replaceChildren(...fasce.map((f, i) => { const s = document.createElement('span'); s.style.background = dash.colors[i]; s.dataset.w = (f[1] / tot * 100) + '%'; s.style.width = s.dataset.w; s.title = f[0]; return s; }));
+  const leg = root.querySelector('#ore-fasce-leg');
+  leg.replaceChildren(...fasce.map((f, i) => { const s = document.createElement('span'); const q = document.createElement('i'); q.style.background = dash.colors[i]; s.append(q, f[0] + ' ' + hh(f[1]) + ' (' + Math.round(f[1] / tot * 100) + '%)'); return s; }));
+  root.querySelector('#come-spezzati').textContent = spezzati;
+  root.querySelector('#come-lungo').textContent = lungo ? hh(lungo.ore) + ', ' + lungo.g + '/' + M.m : '—';
+  let liberi = 0;
+  for (let g = 1; g <= M.fin; g++) if (!M.giorni[g]) liberi++;
+  root.querySelector('#come-liberi').textContent = liberi;
+  const top = Object.entries(entrate).sort((a, b) => b[1] - a[1])[0];
+  root.querySelector('#come-entrata').textContent = top ? top[0] + ' (' + top[1] + ' volte)' : '—';
+}
+
 dash.onData(() => {
   root.querySelectorAll('[data-fill]').forEach(fillOne);
+  drawStima();
+  drawCal();
+  drawSett();
+  drawCome();
   drawMeter();
   drawTurni();
   drawCat();
@@ -1319,7 +1572,7 @@ function apri(id, anima, senzaLink) {
     if (a.dataset.tab === id) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
-  if (anima && id === 'ore') { riempi([root.querySelector('#ore-meter')]); luccica([root.querySelector('#ore-meter')]); }
+  if (anima && id === 'ore') { riempi([root.querySelector('#ore-meter'), ...root.querySelectorAll('#ore-sett .sv-bar, #ore-fasce span')]); luccica([root.querySelector('#ore-meter')]); popCal(); }
   if (anima && id === 'spese') { const b = [...root.querySelectorAll('#tab-cat .sv-bar')]; riempi(b); luccica(b.slice(0, 3)); riempi([...root.querySelectorAll('#tab-negozi .sv-bar')]); }
   if (anima) { const p = root.querySelector('#' + id); ricontaPagina(p); righeInFila(p); }
   if (id === 'ore') { animati.delete('ore'); drawOreChart(); }
@@ -1369,7 +1622,7 @@ const iniziale = location.hash.slice(1);
 // un link che non è di una mia scheda (per esempio #f1) resta com'è: lo apre f1.js
 apri(SCHEDE.includes(iniziale) ? iniziale : 'oggi', true, !SCHEDE.includes(iniziale) && iniziale !== '');
 </script>
-<script src="f1.js?v=a77ccf25"></script>
+<script src="f1.js?v=0e1c11e3"></script>
 
 <footer class="lma-foot"><span id="lma-quando">—</span><button type="button" id="lma-esci">Esci</button></footer>
 </div>
