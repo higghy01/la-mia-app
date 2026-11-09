@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>La mia app si è spostata</title>
+<meta http-equiv="refresh" content="2; url=https://la-mia-app-sv.web.app/">
+<style>body{font-family:-apple-system,system-ui,sans-serif;background:#faf9f5;color:#1f1e1d;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;text-align:center}
+@media (prefers-color-scheme:dark){body{background:#1f1e1d;color:#faf9f5}a{color:#e8a387}}
+a{color:#c4633f;font-weight:600}</style></head>
+<body><main><h1>La mia app si è spostata</h1>
+<p>Il nuovo indirizzo è<br><a href="https://la-mia-app-sv.web.app/">la-mia-app-sv.web.app</a></p>
+<p>Aggiungilo di nuovo alla schermata Home e togli questa.</p></main>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister())).catch(()=>{});}
+if(window.caches){caches.keys().then(k=>k.forEach(n=>caches.delete(n))).catch(()=>{});}
+setTimeout(()=>location.replace('https://la-mia-app-sv.web.app/'),2000);
+</script></body></html>
